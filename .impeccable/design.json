@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T18:32:15Z",
+  "title": "Design System: Scrum Poker Planning",
+  "extensions": {
+    "colorMeta": {
+      "sky-outline": {
+        "role": "primary",
+        "displayName": "Sky Outline",
+        "tonalRamp": ["oklch(0.15000 0.04894 219.65)", "oklch(0.26429 0.04894 219.65)", "oklch(0.37857 0.04894 219.65)", "oklch(0.49286 0.04894 219.65)", "oklch(0.60714 0.04894 219.65)", "oklch(0.72143 0.04894 219.65)", "oklch(0.83571 0.04894 219.65)", "oklch(0.95000 0.04894 219.65)"]
+      },
+      "mint-selection": {
+        "role": "secondary",
+        "displayName": "Mint Selection",
+        "tonalRamp": ["oklch(0.15000 0.15580 144.09)", "oklch(0.26429 0.15580 144.09)", "oklch(0.37857 0.15580 144.09)", "oklch(0.49286 0.15580 144.09)", "oklch(0.60714 0.15580 144.09)", "oklch(0.72143 0.15580 144.09)", "oklch(0.83571 0.15580 144.09)", "oklch(0.95000 0.15580 144.09)"]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "tonalRamp": ["oklch(0.15000 0 0)", "oklch(0.26429 0 0)", "oklch(0.37857 0 0)", "oklch(0.49286 0 0)", "oklch(0.60714 0 0)", "oklch(0.72143 0 0)", "oklch(0.83571 0 0)", "oklch(0.95000 0 0)"]
+      },
+      "native-button-text": { "role": "neutral", "displayName": "Native Button Text" },
+      "native-button-face": { "role": "neutral", "displayName": "Native Button Face" },
+      "black": {
+        "role": "neutral",
+        "displayName": "Black",
+        "tonalRamp": ["oklch(0.15000 0.00000 0.00)", "oklch(0.26429 0.00000 0.00)", "oklch(0.37857 0.00000 0.00)", "oklch(0.49286 0.00000 0.00)", "oklch(0.60714 0.00000 0.00)", "oklch(0.72143 0.00000 0.00)", "oklch(0.83571 0.00000 0.00)", "oklch(0.95000 0.00000 0.00)"]
+      }
+    },
+    "tonalRampProvenance": "Existing synthesized OKLCH preview ramps retained as non-normative metadata, not authored design tokens; out-of-sRGB steps may be gamut-mapped by the renderer. White is achromatic. Native system colors are environment-dependent and have no fixed authored ramp.",
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "Paragraphs; legends share its size without an authored weight." },
+      "supporting": { "displayName": "Supporting", "purpose": "Small explanatory paragraphs." },
+      "title": { "displayName": "Tile Title", "purpose": "Identity and numbered estimate tiles, not page display headings." },
+      "estimate-pressed": { "displayName": "Pressed Estimate", "purpose": "Pressed estimate-button text." },
+      "label": { "displayName": "Label / Field", "purpose": "Labels and field text share size and weight; fields explicitly inherit their surrounding font family." },
+      "button-label": { "displayName": "Button Label", "purpose": "Shared action button text; source bold resolves to 700." }
+    },
+    "shadows": [
+      { "name": "action-rest", "value": "0 2px 4px 0 rgba(0, 0, 0, 0.15)", "purpose": "Shared button at rest; removed on active and disabled states." },
+      { "name": "estimate-pressed", "value": "inset 0 0 0 1px black", "purpose": "Structural selection stroke, not ambient elevation." }
+    ],
+    "motion": [
+      { "name": "button-transition", "value": "all 0.2s", "purpose": "Button default and hover transition; disabled during active state." },
+      { "name": "button-loading", "value": "0.75s linear infinite", "purpose": "Optional loading pseudo-element rotates to 360deg; source supplies no spinner stroke." }
+    ],
+    "focus": { "selector": ":focus", "outline": "2px solid black", "outlineOffset": "3px", "purpose": "Shared buttons, estimate buttons, and fields; also applies to keyboard focus." },
+    "breakpoints": [
+      { "name": "page-panel-table", "value": "720px" },
+      { "name": "facilitator-header", "value": "900px" },
+      { "name": "wide-page-fields", "value": "1200px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Action Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Shared session and voting action; native fill and border are not local tokens.",
+      "html": "<button class=\"ds-button\" type=\"button\">Start Session</button>",
+      "css": ".ds-button { display: block; border-radius: 3px; font-weight: bold; font-size: 14px; padding: 18px 44px; max-width: 100%; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; cursor: pointer; line-height: 18px; transition: all 0.2s; user-select: none; position: relative; box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.15); } .ds-button:hover { transition: all 0.2s; } .ds-button:focus, .ds-button:focus-visible { outline: 2px solid black; outline-offset: 3px; } .ds-button:active { transition: none; box-shadow: none; } .ds-button:disabled { cursor: default; box-shadow: none; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Associated session label and font-inheriting field with responsive stacking and shared focus outline.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-label\" for=\"ds-session\">Session Name</label><input class=\"ds-input\" id=\"ds-session\" name=\"sessionName\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; } .ds-label { display: flex; font-size: 18px; font-weight: 600; margin: 0 12px 12px 0; } .ds-input { box-sizing: border-box; max-width: 100%; min-width: 0; font-family: inherit; border: 1px solid black; border-radius: 3px; padding: 12px; font-size: 18px; font-weight: 600; width: 600px; } .ds-input:focus, .ds-input:focus-visible { outline: 2px solid black; outline-offset: 3px; } @media (max-width: 1199px) { .ds-input { width: 100%; margin: 0; } } @media (min-width: 1200px) { .ds-field { flex-direction: row; align-items: center; } }"
+    },
+    {
+      "name": "Story Textarea",
+      "kind": "input",
+      "refersTo": "textarea",
+      "description": "Multiline story entry; full container width and source minimum height.",
+      "html": "<div class=\"ds-story-field\"><label class=\"ds-story-label\" for=\"ds-stories\">Story list</label><textarea class=\"ds-textarea\" id=\"ds-stories\" name=\"storyList\"></textarea></div>",
+      "css": ".ds-story-field { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; } .ds-story-label { display: flex; font-size: 18px; font-weight: 600; margin: 0 12px 12px 0; } .ds-textarea { box-sizing: border-box; max-width: 100%; min-width: 0; font-family: inherit; border: 1px solid black; border-radius: 3px; padding: 12px; font-size: 18px; font-weight: 600; width: 100%; min-height: 300px; margin-bottom: 24px; resize: vertical; } .ds-textarea:focus, .ds-textarea:focus-visible { outline: 2px solid black; outline-offset: 3px; } @media (min-width: 1200px) { .ds-story-field { flex-direction: row; align-items: center; } }"
+    },
+    {
+      "name": "Identity Tile",
+      "kind": "card",
+      "refersTo": "identity-tile",
+      "description": "Outlined product identity shared by setup and estimation surfaces.",
+      "html": "<div class=\"ds-identity\">Scrum Poker</div>",
+      "css": ".ds-identity { border: 2px solid lightblue; border-radius: 6px; padding: 18px 24px; width: 100px; height: 100px; display: flex; flex-direction: column; margin-bottom: 24px; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 24px; font-weight: 600; user-select: none; }"
+    },
+    {
+      "name": "Selected Estimate Tile",
+      "kind": "custom",
+      "refersTo": "estimate-tile-selected",
+      "description": "Native pressed estimate button with Mint border, bold text, inset selection stroke, and shared focus outline.",
+      "html": "<button class=\"ds-estimate-selected\" type=\"button\" aria-pressed=\"true\">3</button>",
+      "css": ".ds-estimate-selected { border: 1px solid lightgreen; border-radius: 6px; padding: 18px 24px; width: 20px; height: 20px; display: flex; flex-direction: column; margin-bottom: 24px; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 24px; font-weight: 600; user-select: none; background: white; color: black; white-space: nowrap; cursor: pointer; box-sizing: content-box; } .ds-estimate-selected:focus, .ds-estimate-selected:focus-visible { outline: 2px solid black; outline-offset: 3px; } .ds-estimate-selected[aria-pressed='true'] { font-weight: 700; box-shadow: inset 0 0 0 1px black; } .ds-estimate-selected:disabled { cursor: default; opacity: 0.6; }"
+    },
+    {
+      "name": "Estimate Tile",
+      "kind": "button",
+      "refersTo": "estimate-tile",
+      "description": "Unselected native estimate button with Sky border; no authored hover change.",
+      "html": "<button class=\"ds-estimate\" type=\"button\" aria-pressed=\"false\">5</button>",
+      "css": ".ds-estimate { border: 1px solid lightblue; border-radius: 6px; padding: 18px 24px; width: 20px; height: 20px; display: flex; flex-direction: column; margin-bottom: 24px; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 24px; font-weight: 600; user-select: none; background: white; color: black; white-space: nowrap; cursor: pointer; box-sizing: content-box; } .ds-estimate:focus, .ds-estimate:focus-visible { outline: 2px solid black; outline-offset: 3px; } .ds-estimate:disabled { cursor: default; opacity: 0.6; }"
+    },
+    {
+      "name": "Worksheet Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Full-width native fieldset grouping with responsive padding and minimum height.",
+      "html": "<fieldset class=\"ds-panel\"><legend class=\"ds-legend\">Active Story</legend><p class=\"ds-paragraph\">Please Vote!</p></fieldset>",
+      "css": ".ds-panel { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; display: flex; justify-content: center; flex-direction: column; padding: 24px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; } .ds-panel > legend { max-width: 100%; } .ds-legend { font-size: 18px; margin-left: 12px; } .ds-paragraph { font-size: 18px; } @media (min-width: 720px) { .ds-panel { min-height: 500px; padding: 24px; } }"
+    },
+    {
+      "name": "Home Navigation Action",
+      "kind": "nav",
+      "refersTo": "navigation-action",
+      "description": "Single native anchor using shared action styling and explicit CSS system colors.",
+      "html": "<a class=\"ds-nav-button\" href=\"./poker-planning-add-story-list\">Add Story List</a>",
+      "css": ".ds-nav-button { display: block; border-radius: 3px; font-weight: bold; font-size: 14px; padding: 18px 44px; max-width: 100%; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; cursor: pointer; line-height: 18px; transition: all 0.2s; user-select: none; position: relative; box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.15); color: ButtonText; background: ButtonFace; border: 2px outset ButtonFace; text-align: center; text-decoration: none; } .ds-nav-button:hover { transition: all 0.2s; } .ds-nav-button:focus, .ds-nav-button:focus-visible { outline: 2px solid black; outline-offset: 3px; } .ds-nav-button:active { transition: none; box-shadow: none; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Estimation Worksheet",
+    "overview": "Plainspoken and structured. Fields, outlined groups, and numbered estimate tiles organize the work without an ornamental layer.\n\nBorder-defined panels, lightly lifted actions. The worksheet's character comes from explicit labels, simple grouping, and compact corner rounding; no visual anti-references are established.",
+    "keyCharacteristics": [
+      "Plainspoken and structured.",
+      "Border-defined panels, lightly lifted actions.",
+      "Numbered estimate tiles with a selected-state outline."
+    ],
+    "rules": [
+      { "name": "The Lightly Lifted Action Rule", "body": "Use the observed button shadow for action depth, not as an invented panel-elevation scale.", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** keep the component philosophy plainspoken and structured.",
+      "**Do** use Sky Outline for identity framing and Mint Selection for selected estimate framing.",
+      "**Do** preserve the distinction between authored component styling and browser/library defaults.",
+      "**Do** retain the shared Black focus outline and native button, link, label, fieldset, and form semantics.",
+      "**Do** use the authored responsive containers and grids rather than restoring fixed panel dimensions."
+    ],
+    "donts": [
+      "**Don't** infer a button-fill or surface palette from native browser appearance.",
+      "**Don't** invent visual anti-references or hover color changes absent from the source.",
+      "**Don't** substitute ambient elevation for the pressed estimate's inset selection stroke."
+    ]
+  }
+}
