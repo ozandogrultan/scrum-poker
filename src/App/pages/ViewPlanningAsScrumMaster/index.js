@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Redirect, withRouter } from 'react-router-dom';
+import styled from 'styled-components';
 
 import PageLayout from '../../components/PageLayout';
 import Rectangle from '../../components/Rectangle';
@@ -10,6 +11,7 @@ import Label from '../../components/Label';
 import Table from '../../components/Table';
 import P from '../../components/P';
 import Button from '../../components/Button';
+import { colors } from '../../components/tokens';
 import dayList from '../../common/dayList';
 import columns from '../../common/columns';
 import { ACTIVE, VOTED, NOT_VOTED } from '../../common/storyStatus';
@@ -23,6 +25,16 @@ import DayList from './DayList';
 import Header from './Header';
 import FinalScore from './FinalScore';
 import Api, { validateStories, decodeSessionName } from '../../common/api';
+
+const StatusDot = styled.span`
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: ${props => props.active ? colors.selected : 'transparent'};
+  border: 1px solid ${colors.ink};
+  flex-shrink: 0;
+`;
 
 const SETUP_ROUTE = '/poker-planning-add-story-list';
 
@@ -511,7 +523,7 @@ class ViewPlanningAsScrumMaster extends Component {
           <Rectangle>Scrum Poker</Rectangle>
           <div>
             <P small>
-              Please share link of developers panel to the teammates:
+              Please share link of developers panel to the teammates:{' '}
               {window.location.origin}/poker-planning-view-as-developer/
               {encodeURIComponent(sessionName)}
             </P>
@@ -519,8 +531,9 @@ class ViewPlanningAsScrumMaster extends Component {
               <Button type='button' onClick={this.handleCopyLink}>
                 {copied ? 'Copied link!' : 'Copy invite link'}
               </Button>
-              <P small role='status' style={{ margin: 0 }}>
-                {liveConnected ? '● Live' : '○ Polling'}
+              <P small role='status' style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <StatusDot active={liveConnected} />
+                {liveConnected ? 'Live' : 'Polling'}
               </P>
             </div>
           </div>

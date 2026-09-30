@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import Rectangle from '../../components/Rectangle';
 import Button from '../../components/Button';
 import Wrapper from './Wrapper';
 
@@ -17,6 +18,7 @@ class Home extends Component {
   render() {
     return (
       <Wrapper as='main'>
+        <Rectangle>Scrum Poker</Rectangle>
         <h1>Scrum Poker Planning</h1>
         <LinkButton to={'./poker-planning-add-story-list'}>
           Add Story List

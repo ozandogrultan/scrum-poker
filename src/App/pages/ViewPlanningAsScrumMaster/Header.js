@@ -8,7 +8,7 @@ const Header = styled.div`
   margin-bottom: 24px;
   gap: 16px;
 
-  > p {
+  p {
     min-width: 0;
     max-width: 65ch;
   }

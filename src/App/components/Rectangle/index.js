@@ -12,6 +12,8 @@ const Rectangle = styled.div`
   margin-bottom: ${spacing.group};
   align-items: center;
   justify-content: center;
+  text-align: center;
+  line-height: 1.15;
   outline: none;
   font-size: ${type.title};
   font-weight: ${type.labelWeight};

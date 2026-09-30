@@ -9,8 +9,8 @@ const Wrapper = styled.div`
   gap: ${spacing.field};
 
   @media (min-width: 1200px) {
-    flex-direction: row;
-    align-items: center;
+    flex-direction: ${props => props.textarea ? 'column' : 'row'};
+    align-items: ${props => props.textarea ? 'stretch' : 'center'};
   }
 `;
 

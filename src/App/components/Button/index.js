@@ -1,5 +1,5 @@
 import styled, { css, keyframes } from 'styled-components';
-import { radius, focusRing } from '../tokens';
+import { colors, radius, focusRing } from '../tokens';
 
 const buttonLoadingAnimtionSpin = keyframes`
   100% {
@@ -17,6 +17,8 @@ const loading = css`
     width: 18px;
     height: 18px;
     border-radius: 50%;
+    border: 2px solid ${colors.ink};
+    border-top-color: transparent;
     animation: ${buttonLoadingAnimtionSpin} 0.75s linear infinite;
     top: 50%;
     left: 50%;

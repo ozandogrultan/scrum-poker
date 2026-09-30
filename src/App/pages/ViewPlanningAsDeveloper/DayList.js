@@ -7,7 +7,15 @@ const DayList = styled.div`
   flex-direction: row;
   justify-content: space-around;
   flex-wrap: wrap;
+  gap: 8px;
   margin: 0 auto;
+
+  > p,
+  > [role='status'],
+  > [role='alert'] {
+    width: 100%;
+    text-align: center;
+  }
 `;
 
 export default DayList;

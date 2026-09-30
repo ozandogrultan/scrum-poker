@@ -6,9 +6,52 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: black;
+  background-color: white;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
+::selection {
+  background-color: lightgreen;
+  color: black;
+}
+
+input,
+textarea {
+  caret-color: black;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: lightblue transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: lightblue;
+  border-radius: 3px;
+}
+
+table,
+.rt-table {
+  font-variant-numeric: tabular-nums;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.02em;
+}
+
+a {
+  text-underline-offset: 3px;
 }
