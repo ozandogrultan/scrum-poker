@@ -16,11 +16,16 @@ class TextField extends React.Component {
       ...restOf
     } = this.props;
 
+    const describedBy =
+      [restOf['aria-describedby'], errorText && `${name}-error`]
+        .filter(Boolean)
+        .join(' ') || undefined;
+
     return (
       <Wrapper className={className}>
         {label && <Label htmlFor={name}>{label}</Label>}
-        <InputGroup name={name} {...restOf} />
-        {errorText && errorText}
+        <InputGroup id={name} name={name} aria-invalid={!!errorText} {...restOf} aria-describedby={describedBy} />
+        {errorText && <span id={`${name}-error`} role='alert'>{errorText}</span>}
       </Wrapper>
     );
   }

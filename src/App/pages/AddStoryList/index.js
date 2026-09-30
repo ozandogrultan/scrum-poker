@@ -9,6 +9,7 @@ import Button from '../../components/Button';
 import { ACTIVE, NOT_VOTED } from '../../common/storyStatus';
 import TextFieldWrapper from './TextFieldWrapper';
 import ButtonWrapper from './ButtonWrapper';
+import { isPositiveInteger } from '../../common/api';
 
 class AddStoryList extends Component {
   constructor(props) {
@@ -16,16 +17,24 @@ class AddStoryList extends Component {
     this.state = {
       sessionName: '',
       numberOfVoters: '',
-      storyList: ''
+      storyList: '',
+      errors: {}
     };
 
     this.onTextChange = this.onTextChange.bind(this);
     this.routeChange = this.routeChange.bind(this);
+    this.onSubmit = this.onSubmit.bind(this);
+  }
+
+  onSubmit(event) {
+    event.preventDefault();
+    this.routeChange();
   }
 
   initializeData(splittedStoryList) {
     return splittedStoryList.map((story, i) => {
       return {
+        id: i + 1,
         story: story,
         storyPoint: '',
         status: i === 0 ? ACTIVE : NOT_VOTED
@@ -35,13 +44,18 @@ class AddStoryList extends Component {
 
   routeChange() {
     const { sessionName, numberOfVoters, storyList } = this.state;
-    // Split story list from new line
-    const splittedStoryList = storyList.split(/\r?\n/);
+    const splittedStoryList = storyList.split(/\r?\n/).map(story => story.trim()).filter(Boolean);
+    const errors = {};
+    if (!sessionName.trim()) errors.sessionName = 'Enter a session name.';
+    if (!isPositiveInteger(numberOfVoters)) errors.numberOfVoters = 'Enter a positive whole number of voters.';
+    if (!splittedStoryList.length) errors.storyList = 'Enter at least one story, one per line.';
+    this.setState({ errors });
+    if (Object.keys(errors).length) return;
     const data = this.initializeData(splittedStoryList);
-    const path = `poker-planning-view-as-scrum-master/${sessionName}`;
+    const path = `/poker-planning-view-as-scrum-master/${encodeURIComponent(sessionName.trim())}`;
     this.props.history.push({
       pathname: path,
-      state: { data, numberOfVoters, sessionName }
+      state: { data, numberOfVoters, sessionName: sessionName.trim() }
     });
   }
 
@@ -55,38 +69,40 @@ class AddStoryList extends Component {
   }
 
   render() {
-    const { sessionName, numberOfVoters } = this.state;
-    const voters = parseInt(numberOfVoters);
+    const { sessionName, numberOfVoters, storyList, errors } = this.state;
     return (
       <PageLayout>
         <Rectangle>Scrum Poker</Rectangle>
-        <TextFieldWrapper>
-          <TextField
-            name='sessionName'
-            width='600px'
-            label='Session Name'
-            value={sessionName}
-            onChange={this.onTextChange}
-            maxLength='200'
-          />
-          <TextField
-            name='numberOfVoters'
-            width='600px'
-            label='Number of voters'
-            value={numberOfVoters}
-            onChange={this.onTextChange}
-          />
-        </TextFieldWrapper>
-        <P>Paste your story list (Each line will be converted as a story)</P>
-        <TextField textarea name='storyList' onChange={this.onTextChange} />
-        <ButtonWrapper>
-          <Button
-            disabled={isNaN(voters) || voters === 0}
-            onClick={this.routeChange}
-          >
-            Start Session
-          </Button>
-        </ButtonWrapper>
+        <h1>Start a session</h1>
+        <form noValidate onSubmit={this.onSubmit}>
+          <TextFieldWrapper>
+            <TextField
+              name='sessionName'
+              width='600px'
+              label='Session Name'
+              value={sessionName}
+              onChange={this.onTextChange}
+              maxLength='200'
+              errorText={errors.sessionName}
+            />
+            <TextField
+              name='numberOfVoters'
+              width='600px'
+              label='Number of voters'
+              value={numberOfVoters}
+              onChange={this.onTextChange}
+              inputMode='numeric'
+              errorText={errors.numberOfVoters}
+            />
+          </TextFieldWrapper>
+          <P id='storyList-help'>Paste your story list (Each line will be converted as a story)</P>
+          <TextField textarea name='storyList' label='Story list' aria-describedby='storyList-help' value={storyList} errorText={errors.storyList} onChange={this.onTextChange} />
+          <ButtonWrapper>
+            <Button type='submit'>
+              Start Session
+            </Button>
+          </ButtonWrapper>
+        </form>
       </PageLayout>
     );
   }

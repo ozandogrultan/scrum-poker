@@ -1,11 +1,12 @@
 import styled from 'styled-components';
+import { spacing } from '../../components/tokens';
 
 const TextFieldWrapper = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+  align-items: start;
+  gap: ${spacing.group};
+  margin-bottom: ${spacing.group};
 `;
 
 export default TextFieldWrapper;

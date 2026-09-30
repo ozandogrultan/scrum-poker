@@ -2,6 +2,7 @@ import styled from 'styled-components';
 
 const DayList = styled.div`
   width: 300px;
+  max-width: 100%;
   display: flex;
   flex-direction: row;
   align-content: center;

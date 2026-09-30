@@ -1,10 +1,11 @@
 import styled from 'styled-components';
+import { spacing, type } from '../tokens';
 
 const Label = styled.label`
   display: flex;
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 12px 12px 0;
+  font-size: ${type.body};
+  font-weight: ${type.labelWeight};
+  margin: 0 ${spacing.field} ${spacing.field} 0;
 `;
 
 export default Label;

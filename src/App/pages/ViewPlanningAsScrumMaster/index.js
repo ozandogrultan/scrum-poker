@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { withRouter } from 'react-router-dom';
+import { Redirect, withRouter } from 'react-router-dom';
 
 import PageLayout from '../../components/PageLayout';
 import Rectangle from '../../components/Rectangle';
@@ -22,20 +22,105 @@ import Voters from './Voters';
 import DayList from './DayList';
 import Header from './Header';
 import FinalScore from './FinalScore';
+import Api, { validateStories, decodeSessionName } from '../../common/api';
+
+const SETUP_ROUTE = '/poker-planning-add-story-list';
+
+const isValidVoterCount = value => parseInt(value, 10) >= 1;
+
+const readSavedSetup = key => {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(key));
+    return saved && isValidVoterCount(saved.numberOfVoters) ? saved : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const isValidId = id => /^\d+$/.test(String(id));
+
+const isValidEstimate = selected =>
+  /^\d+$/.test(String(selected)) && dayList.includes(Number(selected));
+
+const findVote = (voteMapping, i) =>
+  voteMapping.find(vote => vote && isValidId(vote.id) && Number(vote.id) === i);
+
+const saveSetup = (key, numberOfVoters, facilitatorToken) => {
+  try {
+    window.sessionStorage.setItem(
+      key,
+      JSON.stringify({ numberOfVoters, ...(facilitatorToken ? { facilitatorToken } : {}) })
+    );
+  } catch (e) {}
+};
 
 class ViewPlanningAsScrumMaster extends Component {
   constructor(props) {
     super(props);
+    const rawSessionName =
+      props.match && props.match.params && props.match.params.sessionName;
+    this.sessionName = decodeSessionName(rawSessionName);
+    this.storageKey = `scrum-poker:session:${this.sessionName}`;
+    this.setup = this.resolveSetup();
+    this.facilitatorToken = (this.setup && this.setup.facilitatorToken) || null;
+    this.api = new Api();
+    this.version = 0;
+    this.unmounted = false;
     this.state = {
       selected: null,
       votingFinished: false,
       currentData: [],
       voteMapping: [],
-      finalScore: ''
+      finalScore: '',
+      initError: '',
+      pollError: '',
+      endError: '',
+      saving: false,
+      copied: false,
+      liveConnected: false
     };
     this.handleSelect = this.handleSelect.bind(this);
     this.handleFinalScore = this.handleFinalScore.bind(this);
     this.handleEndVote = this.handleEndVote.bind(this);
+    this.handleCopyLink = this.handleCopyLink.bind(this);
+    this.handleRestartVoting = this.handleRestartVoting.bind(this);
+    this.initialize = this.initialize.bind(this);
+    this.poll = this.poll.bind(this);
+  }
+
+  resolveSetup() {
+    const storageKey = this.storageKey;
+    const routeState = this.props.location.state;
+    const saved = readSavedSetup(storageKey);
+    if (
+      routeState &&
+      Array.isArray(routeState.data) &&
+      isValidVoterCount(routeState.numberOfVoters)
+    ) {
+      if (routeState.initialized) {
+        const numberOfVoters = saved
+          ? saved.numberOfVoters
+          : routeState.numberOfVoters;
+        const facilitatorToken = (saved && saved.facilitatorToken) || routeState.facilitatorToken || null;
+        saveSetup(storageKey, numberOfVoters, facilitatorToken);
+        return { numberOfVoters, facilitatorToken, data: [], isNew: false };
+      }
+      return {
+        numberOfVoters: routeState.numberOfVoters,
+        facilitatorToken: routeState.facilitatorToken || null,
+        data: routeState.data,
+        isNew: true
+      };
+    }
+    if (saved) {
+      return {
+        numberOfVoters: saved.numberOfVoters,
+        facilitatorToken: saved.facilitatorToken || null,
+        data: [],
+        isNew: false
+      };
+    }
+    return null;
   }
 
   handleFinalScore(event) {
@@ -55,7 +140,7 @@ class ViewPlanningAsScrumMaster extends Component {
   }
 
   renderVoters() {
-    const { numberOfVoters } = this.props.location.state;
+    const { numberOfVoters } = this.setup;
     const voters = [];
     if (this.state.votingFinished) {
       // If voting is finished, display each vote as numbers
@@ -64,10 +149,8 @@ class ViewPlanningAsScrumMaster extends Component {
           <VoterWrapper key={i}>
             <P>Voter {i}:</P>
             <P>
-              {
-                this.state.voteMapping.find(obj => parseInt(obj.id) === i)
-                  .selected
-              }
+              {(findVote(this.state.voteMapping, i) || {}).selected ||
+                NOT_VOTED}
             </P>
           </VoterWrapper>
         );
@@ -89,113 +172,312 @@ class ViewPlanningAsScrumMaster extends Component {
     return voters;
   }
 
-  isVotingFinished() {
-    const { numberOfVoters } = this.props.location.state;
-    const { voteMapping, selected } = this.state;
+  isVotingFinished(voteMapping, selected) {
+    const { numberOfVoters } = this.setup;
     // Check if voter ids are in range 1 and numberOfVoters and Scrum Master also voted
-    return (
-      voteMapping.every(obj => obj.id >= 1 && obj.id <= numberOfVoters) &&
-      voteMapping.length === parseInt(numberOfVoters) &&
-      !!selected
-    );
+    const count = parseInt(numberOfVoters, 10);
+    const ids = voteMapping.map(vote => vote && vote.id);
+    if (!selected || !ids.every(isValidId)) return false;
+    if (new Set(ids.map(Number)).size !== ids.length) return false;
+    if (ids.some(id => Number(id) < 1 || Number(id) > count)) return false;
+    for (let i = 1; i <= count; i++) {
+      const vote = findVote(voteMapping, i);
+      if (!vote || !isValidEstimate(vote.selected)) return false;
+    }
+    return true;
   }
 
-  async componentDidMount() {
-    const { data, sessionName } = this.props.location.state;
-    const sessionURI = encodeURI(sessionName);
-    try {
-      fetch(`/poker-planning-view-as-developer/${sessionURI}`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      // Refresh current story list every 2 seconds
-      setInterval(async () => {
-        const res = await fetch(
-          `/poker-planning-view-as-scrum-master/${sessionURI}`
-        );
-        const currentData = await res.json();
-
-        this.setState({ currentData });
-      }, 2000);
-      // Get votes every 2 seconds
-      setInterval(async () => {
-        const res = await fetch(`/vote-mapping`);
-        const voteMapping = await res.json();
-
-        this.setState({ voteMapping, votingFinished: this.isVotingFinished() });
-      }, 2000);
-    } catch (e) {
-      console.log(e);
+  async fetchStories() {
+    const version = this.version;
+    const currentData = validateStories(
+      await this.api.request(
+        `/poker-planning-view-as-scrum-master/${encodeURIComponent(this.sessionName)}`
+      )
+    );
+    if (!this.unmounted && version === this.version) {
+      this.setState({ currentData });
     }
   }
 
-  handleEndVote(event) {
-    const { sessionName } = this.props.location.state;
-    const { finalScore, currentData } = this.state;
-    if (finalScore) {
-      let nextActiveStoryIndex = null;
-      const nextState = currentData.map((obj, i) => {
-        if (obj.status === ACTIVE) {
-          // Change current ACTIVE story to VOTED
-          nextActiveStoryIndex = i + 1;
-          return {
-            story: obj.story,
-            storyPoint: finalScore,
-            status: VOTED
-          };
-        } else if (i === nextActiveStoryIndex) {
-          // Make the story coming after VOTED one ACTIVE
-          return {
-            story: obj.story,
-            storyPoint: obj.storyPoint,
-            status: ACTIVE
-          };
-        }
-        return {
-          story: obj.story,
-          storyPoint: obj.storyPoint,
-          status: obj.status
-        };
-      });
-      const sessionURI = encodeURI(sessionName);
-      try {
-        fetch(`/poker-planning-view-as-scrum-master/${sessionURI}`, {
+  async fetchVotes() {
+    const version = this.version;
+    const voteMapping = await this.api.request(
+      `/vote-mapping/${encodeURIComponent(this.sessionName)}`
+    );
+    if (!Array.isArray(voteMapping)) {
+      throw new Error('The server returned an invalid vote list. Try again.');
+    }
+    if (!this.unmounted && version === this.version) {
+      this.setState(({ selected }) => ({
+        voteMapping,
+        votingFinished: this.isVotingFinished(voteMapping, selected)
+      }));
+    }
+  }
+
+  async poll() {
+    try {
+      await Promise.all([this.fetchStories(), this.fetchVotes()]);
+      if (!this.unmounted) this.setState({ pollError: '' });
+    } catch (error) {
+      if (!this.unmounted) this.setState({ pollError: error.message });
+    } finally {
+      if (!this.unmounted) this.timer = setTimeout(this.poll, 2000);
+    }
+  }
+
+  async initialize() {
+    if (this.initializing || this.unmounted) return;
+    this.initializing = true;
+    this.setState({ initError: '' });
+    try {
+      const response = await this.api.request(
+        `/poker-planning-view-as-developer/${encodeURIComponent(this.sessionName)}`,
+        {
           method: 'POST',
-          body: JSON.stringify(nextState),
+          body: JSON.stringify({
+            storyList: this.setup.data,
+            numberOfVoters: parseInt(this.setup.numberOfVoters, 10),
+            ...(this.facilitatorToken ? { facilitatorToken: this.facilitatorToken } : {})
+          }),
           headers: {
             'Content-Type': 'application/json'
           }
-        });
+        },
+        false
+      );
+      const serverToken =
+        response && response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('x-facilitator-token')
+          : null;
+      if (serverToken) {
+        this.facilitatorToken = serverToken;
+      }
+    } catch (error) {
+      if (!this.unmounted) {
         this.setState({
-          currentData: nextState,
+          initError: `The session could not be started. ${error.message}`
+        });
+      }
+      return;
+    } finally {
+      this.initializing = false;
+    }
+    if (this.unmounted) return;
+    saveSetup(this.storageKey, this.setup.numberOfVoters, this.facilitatorToken);
+    const { pathname, search, hash, state } = this.props.location;
+    this.props.history.replace({
+      pathname,
+      search,
+      hash,
+      state: { ...state, initialized: true, facilitatorToken: this.facilitatorToken }
+    });
+    this.timer = setTimeout(this.poll, 2000);
+  }
+
+  componentDidMount() {
+    if (!this.setup) {
+      return;
+    }
+    this.connectEvents();
+    if (this.setup.isNew) {
+      this.initialize();
+    } else {
+      this.poll();
+    }
+  }
+
+  connectEvents() {
+    this.api.subscribeEvents(
+      `/events/${encodeURIComponent(this.sessionName)}`,
+      data => {
+        if (this.unmounted) return;
+        if (!this.state.liveConnected) this.setState({ liveConnected: true });
+        if (data.type === 'vote' || data.type === 'init') {
+          if (Array.isArray(data.votes)) {
+            this.setState(({ selected }) => ({
+              voteMapping: data.votes,
+              votingFinished: this.isVotingFinished(data.votes, selected)
+            }));
+          }
+        }
+        if (data.type === 'progress' || data.type === 'init') {
+          if (Array.isArray(data.storyList)) {
+            this.setState({ currentData: data.storyList });
+          }
+        }
+      },
+      () => {
+        if (!this.unmounted && this.state.liveConnected) {
+          this.setState({ liveConnected: false });
+        }
+      },
+      () => {
+        if (!this.unmounted && !this.state.liveConnected) {
+          this.setState({ liveConnected: true });
+        }
+      }
+    );
+  }
+
+  handleCopyLink() {
+    const link = `${window.location.origin}/poker-planning-view-as-developer/${encodeURIComponent(this.sessionName)}`;
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(link).catch(() => {});
+    }
+    this.setState({ copied: true });
+    clearTimeout(this.copyTimer);
+    this.copyTimer = setTimeout(() => {
+      if (!this.unmounted) this.setState({ copied: false });
+    }, 2000);
+  }
+
+  async handleRestartVoting() {
+    const sessionName = this.sessionName;
+    this.setState({ saving: true, endError: '' });
+    try {
+      await this.api.request(
+        `/poker-planning-view-as-scrum-master/${encodeURIComponent(sessionName)}/reset-votes`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.facilitatorToken ? { 'X-Facilitator-Token': this.facilitatorToken } : {})
+          }
+        },
+        false
+      );
+      if (!this.unmounted) {
+        this.setState({
+          voteMapping: [],
           votingFinished: false,
           selected: null,
           finalScore: ''
         });
-      } catch (e) {
-        console.log(e);
       }
+    } catch (err) {
+      if (!this.unmounted) {
+        this.setState({ endError: `Could not restart voting: ${err.message}` });
+      }
+    } finally {
+      if (!this.unmounted) this.setState({ saving: false });
+    }
+  }
+
+  componentWillUnmount() {
+    this.unmounted = true;
+    clearTimeout(this.timer);
+    clearTimeout(this.copyTimer);
+    this.api.close();
+  }
+
+  async handleEndVote() {
+    const sessionName = this.sessionName;
+    const { currentData, saving } = this.state;
+    const finalScore = this.state.finalScore.trim();
+    if (!finalScore || saving) return;
+    if (!isValidEstimate(finalScore)) {
+      this.setState({ endError: 'Choose a final score from the available estimates.' });
+      return;
+    }
+    let nextActiveStoryIndex = null;
+    const nextState = currentData.map((obj, i) => {
+      if (obj.status === ACTIVE) {
+        // Change current ACTIVE story to VOTED
+        nextActiveStoryIndex = i + 1;
+        return {
+          ...obj,
+          story: obj.story,
+          storyPoint: finalScore,
+          status: VOTED
+        };
+      } else if (i === nextActiveStoryIndex) {
+        // Make the story coming after VOTED one ACTIVE
+        return {
+          ...obj,
+          story: obj.story,
+          storyPoint: obj.storyPoint,
+          status: ACTIVE
+        };
+      }
+      return {
+        ...obj,
+        story: obj.story,
+        storyPoint: obj.storyPoint,
+        status: obj.status
+      };
+    });
+    this.version++;
+    this.setState({ saving: true, endError: '' });
+    try {
+      await this.api.request(
+        `/poker-planning-view-as-scrum-master/${encodeURIComponent(sessionName)}`,
+        {
+          method: 'POST',
+          body: JSON.stringify(nextState),
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.facilitatorToken ? { 'X-Facilitator-Token': this.facilitatorToken } : {})
+          }
+        },
+        false
+      );
+      if (!this.unmounted) {
+        this.setState({
+          currentData: nextState,
+          voteMapping: [],
+          votingFinished: false,
+          selected: null,
+          finalScore: ''
+        });
+      }
+    } catch (error) {
+      if (!this.unmounted) {
+        this.setState({
+          endError: `Voting was not ended. ${error.message}`
+        });
+      }
+    } finally {
+      this.version++;
+      if (!this.unmounted) this.setState({ saving: false });
     }
   }
 
   handleSelect(e) {
     const selected = e.currentTarget.textContent;
-    this.setState({ selected });
+    this.setState(({ voteMapping }) => ({
+      selected,
+      votingFinished: this.isVotingFinished(voteMapping, selected)
+    }));
   }
 
   getActiveStory(data) {
     const active = data.find(obj => obj.status === ACTIVE);
-    // Get active story if available, return last story if all stories are voted
-    return active ? active.story : data[data.length - 1].story;
+    if (active) {
+      return active.story;
+    }
+    return '';
   }
 
   render() {
-    const { data, sessionName } = this.props.location.state;
-    const { currentData, selected, votingFinished, finalScore } = this.state;
+    if (!this.setup) {
+      return <Redirect to={SETUP_ROUTE} />;
+    }
+    const { data } = this.setup;
+    const sessionName = this.sessionName;
+    const {
+      currentData,
+      voteMapping,
+      selected,
+      votingFinished,
+      finalScore,
+      initError,
+      pollError,
+      endError,
+      saving,
+      copied,
+      liveConnected
+    } = this.state;
     const storyList = currentData.length ? currentData : data;
 
     const activeStory = this.getActiveStory(storyList);
@@ -203,12 +485,31 @@ class ViewPlanningAsScrumMaster extends Component {
       <PageLayout>
         <Header>
           <Rectangle>Scrum Poker</Rectangle>
-          <P small>
-            Please share link of developers panel to the teammates:
-            http://localhost:3000/poker-planning-view-as-developer/
-            {encodeURI(sessionName)}
-          </P>
+          <div>
+            <P small>
+              Please share link of developers panel to the teammates:
+              {window.location.origin}/poker-planning-view-as-developer/
+              {encodeURIComponent(sessionName)}
+            </P>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+              <Button type='button' onClick={this.handleCopyLink}>
+                {copied ? 'Copied link!' : 'Copy invite link'}
+              </Button>
+              <P small role='status' style={{ margin: 0 }}>
+                {liveConnected ? '● Live' : '○ Polling'}
+              </P>
+            </div>
+          </div>
         </Header>
+        <h1>Facilitate planning</h1>
+        {initError && (
+          <div role='alert'>
+            <p>{initError}</p>
+            <Button onClick={this.initialize}>Try again</Button>
+          </div>
+        )}
+        {pollError && <p role='alert'>{pollError}</p>}
+        {!!currentData.length && !activeStory && <p role='status'>All stories have been estimated.</p>}
         <BodyWrapper>
           <LabelWrapper>
             <Label>Story List</Label>
@@ -229,7 +530,9 @@ class ViewPlanningAsScrumMaster extends Component {
                   <SmallRectangle
                     key={day}
                     onClick={this.handleSelect}
-                    selected={parseInt(selected) === day}
+                     selected={parseInt(selected) === day}
+                     aria-pressed={parseInt(selected, 10) === day}
+                    disabled={!activeStory || saving}
                   >
                     {day}
                   </SmallRectangle>
@@ -240,7 +543,7 @@ class ViewPlanningAsScrumMaster extends Component {
           </LabelWrapper>
           <FieldSet>
             <Legend>Scrum Master Panel</Legend>
-            <P>{activeStory} is active</P>
+            <P>{activeStory ? `${activeStory} is active` : 'No active story'}</P>
             <Voters>{this.renderVoters()}</Voters>
             {selected ? (
               <VoterWrapper>
@@ -255,25 +558,44 @@ class ViewPlanningAsScrumMaster extends Component {
             )}
             <BottomWrapper>
               {votingFinished && !this.isVotesEqual() && (
-                <P small>
+                <P small id='finalScore-help'>
                   Seems team has different votes. Please discuss and finalize
                   the score below textbox
                 </P>
               )}
               {votingFinished && selected && (
                 <React.Fragment>
-                  <P>Final Score</P>
                   <FinalScore
                     width='100px'
                     name='finalScore'
+                    label='Final score'
+                    aria-describedby={
+                      !this.isVotesEqual() ? 'finalScore-help' : undefined
+                    }
                     value={finalScore}
                     onChange={this.handleFinalScore}
                   />
                 </React.Fragment>
               )}
-              <Button disabled={!votingFinished} onClick={this.handleEndVote}>
-                End Voting For {activeStory}
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <Button
+                  disabled={!votingFinished || saving}
+                  onClick={this.handleEndVote}
+                >
+                  End Voting For {activeStory}
+                </Button>
+                {activeStory && (voteMapping.length > 0 || selected) && (
+                  <Button
+                    type='button'
+                    disabled={saving}
+                    onClick={this.handleRestartVoting}
+                  >
+                    Restart voting
+                  </Button>
+                )}
+              </div>
+              {saving && <P small role='status'>Ending vote…</P>}
+              {endError && <P small role='alert'>{endError}</P>}
               {!votingFinished && (
                 <P small>You can not end voting till each teammate voted</P>
               )}

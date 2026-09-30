@@ -1,24 +1,34 @@
 import styled from 'styled-components';
+import { colors, radius, spacing, type, focusRing } from '../tokens';
 
 const Rectangle = styled.div`
-  border: 2px solid lightblue;
-  border-radius: 6px;
-  padding: 18px 24px;
+  border: 2px solid ${colors.outline};
+  border-radius: ${radius.tile};
+  padding: ${spacing.inset} ${spacing.group};
   width: 100px;
   height: 100px;
   display: flex;
   flex-direction: column;
-  margin-bottom: 24px;
+  margin-bottom: ${spacing.group};
   align-items: center;
   justify-content: center;
   outline: none;
-  font-size: 24px;
-  font-weight: 600;
+  font-size: ${type.title};
+  font-weight: ${type.labelWeight};
   user-select: none;
 `;
 
-const SmallRectangle = styled(Rectangle)`
-  border: 1px solid ${props => props.selected && 'lightgreen'};
+const SmallRectangle = styled(Rectangle).attrs({ as: 'button', type: 'button' })`
+  border: 1px solid ${props => props.selected ? colors.selected : colors.outline};
+  background: white;
+  color: ${colors.ink};
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: content-box;
+  ${focusRing}
+  &[aria-pressed='true'] { font-weight: 700; box-shadow: inset 0 0 0 1px ${colors.ink}; }
+  &:disabled { cursor: default; opacity: 0.6; }
   width: 20px;
   height: 20px;
 `;

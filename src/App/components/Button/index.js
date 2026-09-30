@@ -1,4 +1,5 @@
 import styled, { css, keyframes } from 'styled-components';
+import { radius, focusRing } from '../tokens';
 
 const buttonLoadingAnimtionSpin = keyframes`
   100% {
@@ -26,11 +27,14 @@ const loading = css`
 
 const Button = styled.button`
   display: block;
-  border-radius: 3px;
+  border-radius: ${radius.control};
   font-weight: bold;
   font-size: 14px;
   padding: 18px 44px;
-  outline: none;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  ${focusRing}
   cursor: pointer;
   line-height: 18px;
   transition: all 0.2s;
@@ -55,5 +59,7 @@ const Button = styled.button`
     box-shadow: none;
   }
 `;
+
+Button.defaultProps = { type: 'button' };
 
 export default Button;
