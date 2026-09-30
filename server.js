@@ -30,6 +30,22 @@ const sessions = new Map();
 const sessionSubscribers = new Map();
 
 const storageFile = process.env.STORAGE_FILE || path.join(__dirname, '.data', 'sessions.json');
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+const pruneExpiredSessions = () => {
+  const now = Date.now();
+  let changed = false;
+  for (const [key, value] of sessions.entries()) {
+    const timestamp = value.updatedAt || value.createdAt;
+    if (timestamp && now - timestamp > SEVEN_DAYS_MS) {
+      sessions.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    persistSessions();
+  }
+};
 
 const persistSessions = () => {
   if (storageFile === ':memory:') return;
@@ -60,6 +76,7 @@ const loadSessions = () => {
         for (const [key, value] of Object.entries(parsed)) {
           sessions.set(key, value);
         }
+        pruneExpiredSessions();
       }
     }
   } catch (err) {
@@ -150,12 +167,15 @@ app.post('/poker-planning-view-as-developer/:sessionName', (req, res) => {
     (body && typeof body.facilitatorToken === 'string' && body.facilitatorToken.trim()) ||
     crypto.randomBytes(16).toString('hex');
 
+  const now = Date.now();
   sessions.set(sessionName, {
     sessionName,
     numberOfVoters: Number(numberOfVoters),
     storyList,
     votes: [],
-    facilitatorToken
+    facilitatorToken,
+    createdAt: now,
+    updatedAt: now
   });
   persistSessions();
   broadcast(sessionName, {
@@ -226,6 +246,7 @@ app.post('/poker-planning-view-as-developer/:sessionName/developers/:id', (req, 
   } else {
     session.votes.push({ id: String(req.params.id), selected: String(estimate) });
   }
+  session.updatedAt = Date.now();
   persistSessions();
   broadcast(sessionName, {
     type: 'vote',
@@ -275,6 +296,7 @@ app.post('/poker-planning-view-as-scrum-master/:sessionName', (req, res) => {
 
   session.storyList = stories;
   session.votes = [];
+  session.updatedAt = Date.now();
   persistSessions();
   broadcast(sessionName, {
     type: 'progress',
@@ -295,6 +317,7 @@ app.post('/poker-planning-view-as-scrum-master/:sessionName/reset-votes', (req, 
     return res.status(403).json({ error: 'Unauthorized: missing or invalid facilitator token' });
   }
   session.votes = [];
+  session.updatedAt = Date.now();
   persistSessions();
   broadcast(sessionName, {
     type: 'vote',
@@ -363,6 +386,8 @@ app.resetSessions = () => {
 app.loadSessions = loadSessions;
 app.persistSessions = persistSessions;
 app.broadcast = broadcast;
+app.pruneExpiredSessions = pruneExpiredSessions;
+app.sessions = sessions;
 
 if (require.main === module) {
   app.listen(port, () => console.log(`Listening on port ${port}`));

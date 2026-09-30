@@ -811,4 +811,29 @@ describe('Server session isolation and validation', () => {
       assert.deepEqual(afterReload.body, [{ id: '1', selected: '8' }]);
     }
   });
+
+  it('prunes sessions older than 7 days', async () => {
+    await request('POST', '/poker-planning-view-as-developer/session-old', {
+      numberOfVoters: 1,
+      storyList: [{ story: 'Old Story', storyPoint: '', status: 'Active' }]
+    });
+    await request('POST', '/poker-planning-view-as-developer/session-recent', {
+      numberOfVoters: 1,
+      storyList: [{ story: 'Recent Story', storyPoint: '', status: 'Active' }]
+    });
+
+    const eightDaysAgo = Date.now() - (8 * 24 * 60 * 60 * 1000);
+    const old = app.sessions.get('session-old');
+    assert.ok(old);
+    old.createdAt = eightDaysAgo;
+    old.updatedAt = eightDaysAgo;
+
+    app.pruneExpiredSessions();
+
+    const oldAfter = await request('GET', '/poker-planning-view-as-developer/session-old');
+    assert.equal(oldAfter.status, 404);
+
+    const recentAfter = await request('GET', '/poker-planning-view-as-developer/session-recent');
+    assert.equal(recentAfter.status, 200);
+  });
 });

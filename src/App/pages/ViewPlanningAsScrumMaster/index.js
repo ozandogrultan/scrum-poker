@@ -84,6 +84,7 @@ class ViewPlanningAsScrumMaster extends Component {
     this.handleEndVote = this.handleEndVote.bind(this);
     this.handleCopyLink = this.handleCopyLink.bind(this);
     this.handleRestartVoting = this.handleRestartVoting.bind(this);
+    this.handleExportCsv = this.handleExportCsv.bind(this);
     this.initialize = this.initialize.bind(this);
     this.poll = this.poll.bind(this);
   }
@@ -364,6 +365,29 @@ class ViewPlanningAsScrumMaster extends Component {
     }
   }
 
+  handleExportCsv() {
+    const { currentData } = this.state;
+    const header = 'Story ID,Story,Story Point,Status\n';
+    const rows = currentData
+      .map(row => {
+        const escapedStory = `"${String(row.story || '').replace(/"/g, '""')}"`;
+        return `${row.id || ''},${escapedStory},${row.storyPoint || ''},${row.status || ''}`;
+      })
+      .join('\n');
+    const csvContent = header + rows;
+    if (typeof window !== 'undefined' && typeof window.Blob !== 'undefined' && typeof window.URL !== 'undefined') {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${this.sessionName || 'session'}-estimates.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  }
+
   componentWillUnmount() {
     this.unmounted = true;
     clearTimeout(this.timer);
@@ -509,7 +533,12 @@ class ViewPlanningAsScrumMaster extends Component {
           </div>
         )}
         {pollError && <p role='alert'>{pollError}</p>}
-        {!!currentData.length && !activeStory && <p role='status'>All stories have been estimated.</p>}
+        {!!currentData.length && !activeStory && (
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', margin: '12px 0', flexWrap: 'wrap' }}>
+            <p role='status' style={{ margin: 0 }}>All stories have been estimated.</p>
+            <Button type='button' onClick={this.handleExportCsv}>Export results (CSV)</Button>
+          </div>
+        )}
         <BodyWrapper>
           <LabelWrapper>
             <Label>Story List</Label>

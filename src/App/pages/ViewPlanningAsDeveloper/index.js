@@ -28,7 +28,8 @@ class ViewPlanningAsDeveloper extends Component {
       loading: true,
       error: '',
       voteError: '',
-      saving: false
+      saving: false,
+      votesCount: 0
     };
 
     this.handleSelect = this.handleSelect.bind(this);
@@ -48,6 +49,11 @@ class ViewPlanningAsDeveloper extends Component {
     if (!sessionName) return;
     this.api.subscribeEvents(`/events/${encodeURIComponent(sessionName)}`, data => {
       if (this.unmounted) return;
+      if (data.type === 'vote' || data.type === 'init') {
+        if (Array.isArray(data.votes)) {
+          this.setState({ votesCount: data.votes.length });
+        }
+      }
       if (data.type === 'progress' || data.type === 'init') {
         if (Array.isArray(data.storyList)) {
           const currentStoryList = data.storyList;
@@ -61,6 +67,7 @@ class ViewPlanningAsDeveloper extends Component {
             currentStoryList,
             error: '',
             loading: false,
+            votesCount: data.type === 'progress' ? 0 : this.state.votesCount,
             ...(changed ? { selected: null, voteError: '' } : {})
           });
         }
@@ -134,7 +141,7 @@ class ViewPlanningAsDeveloper extends Component {
   }
 
   render() {
-    const { currentStoryList: data, selected, loading, error, voteError, saving } = this.state;
+    const { currentStoryList: data, selected, loading, error, voteError, saving, votesCount } = this.state;
     const activeStory = this.getActiveStory(data);
     const validId = isPositiveInteger(this.props.match.params.id);
     return (
@@ -175,6 +182,11 @@ class ViewPlanningAsDeveloper extends Component {
                   </SmallRectangle>
                 ))}
                 <P role='status'>{saving ? 'Saving vote…' : selected ? `${selected} Voted` : activeStory ? 'Please Vote!' : 'No active story'}</P>
+                {activeStory && votesCount > 0 && (
+                  <P small style={{ margin: '4px 0', opacity: 0.8 }}>
+                    {votesCount} {votesCount === 1 ? 'teammate has' : 'teammates have'} voted
+                  </P>
+                )}
                 {voteError && <p role='alert'>{voteError} Select your estimate to try again.</p>}
               </DayList>
             </FieldSet>
