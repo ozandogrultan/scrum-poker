@@ -13,6 +13,9 @@
 
 # misc
 .DS_Store
+/.data
+sessions.json
+/.playwright-mcp
 .env.local
 .env.development.local
 .env.test.local
