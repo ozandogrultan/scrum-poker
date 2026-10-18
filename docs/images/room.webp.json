@@ -1,5 +1,6 @@
 {
   "kind": "application-screenshot",
-  "source": "Local Scrum Poker browser workflow review at 1440 × 1000; reduced to 1200px wide with lossless WebP encoding.",
-  "content": "Synthetic review participant names and story titles; actual application interface."
+  "source": "Actual local Scrum Poker UI captured with headless Playwright at a 1440 × 1080 viewport; resized to 1200 × 900 and encoded as lossless WebP.",
+  "content": "Entirely synthetic checkout refinement session: Maya Chen facilitates Alex Rivera, Sam Taylor, and Jordan Lee. Four realistic checkout stories show one agreed estimate of 3, the second story revealed with estimates 5, 8, 5, and 3, and two queued stories.",
+  "capture": "Room created and first estimate saved through the application UI; documented HTTP API used to join synthetic teammates and submit votes, with authenticated event streams maintaining live presence. No interface text or layout was altered for the capture; no real personal data or capability tokens are shown."
 }
