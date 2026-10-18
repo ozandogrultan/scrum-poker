@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Scrum Poker</title>
+  <rect width="64" height="64" rx="14" fill="#186556"/>
+  <rect x="14" y="11" width="29" height="41" rx="5" transform="rotate(-12 28.5 31.5)" fill="#c4e1d0"/>
+  <g transform="rotate(7 38 35)">
+    <rect x="23" y="15" width="30" height="42" rx="5" fill="#fffefa" stroke="#186556" stroke-width="2"/>
+    <path d="M43 27H34V34H39.5C47 34 47 44 39.5 44H34" stroke="#186556" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

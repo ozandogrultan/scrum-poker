@@ -1,51 +1,40 @@
-# Product
+# Scrum Poker
 
-<!-- impeccable:product-schema 1 -->
+## Product
 
-## Platform
+Scrum Poker is a small, synchronous estimation worksheet for a team discussing a prepared story list. Its primary surface is the working room—not a dashboard or marketing page. The facilitator participates in the same private voting process as everyone else, reveals the estimates when ready, and records the agreed score.
 
-web
+## Workflow
 
-## Users
+1. Create a session with facilitator name, title, and one story per line. Empty lines are discarded by the form.
+2. Share the random `/rooms/:id` link. Invitees join with a display name; matching names never reuse or replace an existing identity.
+3. Select or change a private estimate. Teammates see only whether a person has voted. The caller sees their own saved estimate.
+4. The facilitator reveals at any time, including when someone is away. The distribution and individual estimates become visible to all room members.
+5. Discuss, then choose a final score from the numeric deck. Finalizing advances to the next story automatically.
+6. Reset the current story if another private round is useful. Reset changes the round ID, invalidates old requests, and removes all votes.
+7. Complete the list and export the agreed story scores as formula-safe CSV.
 
-Facilitators and contributors estimating work together as a team, including but not limited to scrum masters and developers. The existing interface uses Scrum Master and Developer role labels.
+## Identities and connectivity
 
-## Product Purpose
+Room membership is represented by a server-generated, per-person bearer capability. The browser saves its room identity locally for reloads. All tabs in the same browser profile share that identity; stream counts keep someone online while any of their tabs remain connected. Storage failures are surfaced rather than promising recovery. Facilitator access cannot be recreated from a name or room link.
 
-Help teams estimate a list of stories through individual votes, discussion, and a facilitator-finalized score. Success means the team can work through its stories and record an agreed estimate for each one.
+Authenticated fetch SSE provides full caller-specific snapshots and heartbeats. Disconnected clients use fallback reads and reconnect; they do not continuously poll alongside a healthy stream. Snapshot versions reject older deliveries. Mutation revisions and round IDs reject stale requests; users review refreshed state before retrying. Network or clipboard failures are reported with recovery actions.
 
-## Operating Context
+## State and architecture
 
-Intended for real team use during collaborative estimation sessions. A facilitator names a session, specifies the contributor count, pastes one story per line, and shares the contributor panel link. Contributors identify themselves by voter number and estimate the active story. The facilitator also votes, reviews the results once everyone has voted, records the final score, and advances to the next story.
+One Bun process runs Hono, serves the production Vite SPA, and owns SQLite plus live stream fan-out. Durable snapshots use synchronous atomic SQLite transactions; room state is never replaced by a client-provided story array. The backend is authoritative for voting, reveal, reset, finalization, permissions and expiry. Public/shared types are in `shared/types.ts`; integration details are in `API-CONTRACT.md`.
 
-The existing local development workflow uses `npm start` for the React app at `http://localhost:3000` and `node server.js` for the Express backend, defaulting to port 5001.
+The client uses React 19, TypeScript, native form controls, self-hosted typography and a responsive worksheet layout: story progress, the current story / estimate deck, and team presence. There is one unified room surface for both roles. Role-specific management controls are separate from the shared voting task.
 
-## Capabilities and Constraints
+## Limits and non-goals
 
-- Story lists show the active story, voting status, and finalized story scores.
-- Contributor votes remain hidden in the facilitator interface until all expected contributors and the facilitator have voted.
-- Differing estimates prompt discussion; the facilitator manually enters the final score.
-- The current implementation uses React, React Router, styled-components, and an Express backend.
-- The backend currently stores one shared story list and vote collection in process memory. Session names in routes do not isolate backend data, and backend state is lost on restart. These are implementation limitations, not intended requirements for real team use.
-- Shared contributor links currently use localhost. Deployment, durable storage, session isolation, and access-control requirements remain open decisions.
+- Fixed Fibonacci-style deck: `0, ½, 1, 2, 3, 5, 8, 13, 21, ?`. Final score must be numeric.
+- 1–100 stories, 500 characters per story, 50 members, 60-character names, 120-character titles, 64 KiB request body.
+- Fixed seven-day room life; 10,000-room storage cap. Members can revisit a completed room until it expires; completed rooms reject new members.
+- Five simultaneous streams per person, 160 per room, 2,000 total; bounded per-minute create/join/command/read rates.
+- No accounts, verified names, facilitator recovery/transfer, member deletion, story editing after creation, or retrospective individual-vote history.
+- No multi-process fan-out, cloud dependencies, deployment orchestration, or migration of anonymous legacy sessions. The rebuilt schema is separate from the obsolete legacy server storage.
 
-## Brand Commitments
+## Verification
 
-The existing product name is Scrum Poker Planning, with Scrum Poker used in the interface. No additional brand or voice commitments are established.
-
-## Evidence on Hand
-
-- `README.md` describes the application and local setup.
-- `src/App/pages/AddStoryList/index.js` implements session setup and newline-separated story entry.
-- `src/App/pages/ViewPlanningAsScrumMaster/index.js` implements facilitation, vote visibility, final scoring, and story progression.
-- `src/App/pages/ViewPlanningAsDeveloper/index.js` implements contributor estimation.
-- `server.js` implements the in-memory story and vote endpoints.
-
-No distinctive positioning, customer proof, benchmarks, pricing, or product-specific accessibility requirements have been confirmed. Do not invent these claims.
-
-## Product Principles
-
-- Serve team estimation beyond formal scrum roles.
-- Preserve individual estimation before group discussion.
-- Keep the facilitator responsible for the agreed final score.
-- Distinguish intended real-team use from current local implementation limitations.
+Server/security regressions run with Bun; React interactions and CSV safety run with Vitest and Testing Library. TypeScript and production bundling are separate checks. Dependency advisories are checked by `bun audit`. UI/browser inspection remains a separate verification step; none of these checks imply a security certification.
