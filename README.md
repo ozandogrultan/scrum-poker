@@ -38,7 +38,7 @@ Open **http://localhost:5173**, create a session, and invite your team using the
 1. **Set the table.** Enter your name, name the session, and paste one story per line.
 2. **Think independently.** Everyone can submit or change an estimate until reveal. The roster shows who has voted, never their number—even to the facilitator.
 3. **Compare perspectives.** The facilitator reveals the estimates. An explicit confirmation makes early reveal deliberate when someone has not voted.
-4. **Agree and move on.** Choose the team’s final score, save it, and advance. Restart the round if another private vote would help.
+4. **Agree and move on.** Choose the team’s final score from the numeric deck (voted values show their vote counts), save it, and advance—or undo the last save before the next round receives a vote. Restart the round if another private vote would help.
 5. **Take the results.** Export story titles and agreed scores as CSV, with spreadsheet formula prefixes neutralized.
 
 The deck is **0 · ½ · 1 · 2 · 3 · 5 · 8 · 13 · 21 · ?**. The question mark is a valid vote, not a final score.

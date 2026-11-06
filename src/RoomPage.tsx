@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { ArrowRight, Check, CheckCheck, Circle, Copy, Download, Eye, LoaderCircle, LockKeyhole, RotateCcw, UsersRound } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { ArrowRight, Check, CheckCheck, Circle, Copy, Download, Eye, LoaderCircle, LockKeyhole, RotateCcw, Undo2, UsersRound } from 'lucide-react';
 import { DECK, SCORES, type Estimate, type Identity, type PublicParticipant, type RoomSnapshot, type Score } from '../shared/types';
 import { downloadCsv } from './export';
 import { useRoom, type Connection, type RoomAction } from './useRoom';
@@ -66,19 +66,19 @@ function Deck({ vote, offline, busy, onVote }: { vote: Estimate | null; offline:
   return <div className="estimate-grid" role="radiogroup" aria-label="Choose your estimate" aria-describedby="deck-legend" onKeyDown={onKeyDown}>{DECK.map((value, index) => <button className="estimate-card" key={value} ref={node => { cards.current[index] = node; }} type="button" role="radio" aria-label={value === '?' ? 'Estimate unsure' : `Estimate ${value}`} aria-checked={vote === value} aria-disabled={busy || undefined} tabIndex={index === tabStop ? 0 : -1} disabled={offline} onFocus={() => setTabStop(index)} onClick={() => { if (!busy) onVote(value); }}><span className="estimate-value">{value}</span>{vote === value ? <Check size={12} aria-hidden="true" /> : <span aria-hidden="true" style={{ height: 12 }} />}</button>)}</div>;
 }
 
-function FinalizeForm({ participants, busy, locked, last, onSave }: { participants: PublicParticipant[]; busy: boolean; locked: boolean; last: boolean; onSave: (score: Score) => void }) {
-  const voted = SCORES.filter(value => participants.some(person => person.estimate === value));
-  const rest = SCORES.filter(value => !voted.includes(value));
-  const [score, setScore] = useState<Score | ''>('');
-  const [other, setOther] = useState(voted.length === 0);
-  const choice = (value: Score) => <label className="score-choice" key={value}><input type="radio" name="final-score" value={value} checked={score === value} disabled={locked} onChange={() => setScore(value)} /><span>{value}</span></label>;
+function FinalizeForm({ participants, busy, locked, last, preset, restart, onSave }: { participants: PublicParticipant[]; busy: boolean; locked: boolean; last: boolean; preset: Score | null; restart: ReactNode; onSave: (score: Score) => void }) {
+  const [score, setScore] = useState<Score | ''>(preset ?? '');
+  useEffect(() => { if (preset) setScore(preset); }, [preset]);
+  const choice = (value: Score) => {
+    const count = participants.filter(person => person.estimate === value).length;
+    return <label className={`score-choice ${count ? 'voted' : ''}`} key={value}><input type="radio" name="final-score" value={value} checked={score === value} disabled={locked} onChange={() => setScore(value)} /><span>{value}{count > 0 && <span className="sr-only">, {count} {count === 1 ? 'vote' : 'votes'}</span>}</span>{count > 0 && <b className="score-count" aria-hidden="true">{count}</b>}</label>;
+  };
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (score) onSave(score); }
   return <form className="finalize-form" onSubmit={submit}>
     <fieldset className="field score-field"><legend>Agreed estimate</legend>
-      <div className="score-choices">{voted.map(choice)}{rest.length > 0 && voted.length > 0 && <button className="score-other" type="button" aria-expanded={other} aria-controls="other-scores" onClick={() => setOther(!other)}>Other</button>}</div>
-      {other && rest.length > 0 && <div className="score-choices" id="other-scores" role="group" aria-label="Other values">{rest.map(choice)}</div>}
-      <small>Choose a score after discussion. This records the estimate for everyone.</small></fieldset>
-    <div className="action-bar"><button className="button primary" disabled={locked || !score} aria-describedby={score ? undefined : 'score-hint'}>{busy ? 'Saving…' : last ? 'Save estimate & finish' : 'Save estimate & next story'}<ArrowRight size={15} /></button>
+      <div className="score-choices">{SCORES.map(choice)}</div>
+      <small>Choose a score after discussion. Numbers show how many voted for each value.</small></fieldset>
+    <div className="action-bar with-restart"><button className="button primary" disabled={locked || !score} aria-describedby={score ? undefined : 'score-hint'}>{busy ? 'Saving…' : last ? 'Save estimate & finish' : 'Save estimate & next story'}<ArrowRight size={15} /></button>{restart}
     {!score && <p className="score-hint" id="score-hint">Choose an agreed estimate first</p>}</div>
   </form>;
 }
@@ -101,6 +101,8 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   const [confirmReset, setConfirmReset] = useState(false);
   const [exportError, setExportError] = useState('');
   const [saved, setSaved] = useState<{ score: Score; title: string; story: number } | null>(null);
+  const [undone, setUndone] = useState<number | null>(null);
+  const [preset, setPreset] = useState<Score | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const [focusTick, setFocusTick] = useState(0);
   const [restarted, setRestarted] = useState(false);
@@ -129,6 +131,7 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   const distribution = DECK.map(value => ({ value, count: room.participants.filter(person => person.estimate === value).length })).filter(item => item.count > 0);
   const spread = spreadNote(room.participants);
   const roundStarted = !done && (revealed || votes > 0);
+  const canUndo = room.self.facilitator && room.currentStory > 0 && room.stories[room.currentStory - 1]?.score != null && !revealed && !room.participants.some(person => person.hasVoted) && undone !== room.currentStory;
 
   useEffect(() => { setConfirmReveal(false); setConfirmReset(false); returnFocus.current = null; }, [room.roundId, room.phase]);
   useEffect(() => {
@@ -214,10 +217,18 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   }
   async function finalize(score: Score) {
     const title = currentStory?.title ?? '';
-    if (await act({ type: 'finalize', score })) { setSaved({ score, title, story: room.currentStory }); setAnnouncement(`Saved ${score} for ${truncate(title)}.`); setFocusTick(tick => tick + 1); }
+    if (await act({ type: 'finalize', score })) { setPreset(null); setSaved({ score, title, story: room.currentStory }); setAnnouncement(`Saved ${score} for ${truncate(title)}.`); setFocusTick(tick => tick + 1); }
   }
-  async function undo() { if (await act({ type: 'undoFinalize' })) { setSaved(null); setFocusTick(tick => tick + 1); } }
-  async function reset() { if (await act({ type: 'reset' })) setConfirmReset(false); }
+  async function undo() {
+    const target = room.currentStory - 1;
+    const previous = room.stories[target]?.score ?? saved?.score ?? null;
+    if (await act({ type: 'undoFinalize' })) { setSaved(null); setUndone(target); setPreset(previous); setFocusTick(tick => tick + 1); }
+  }
+  async function reset() { if (await act({ type: 'reset' })) { setConfirmReset(false); setPreset(null); } }
+
+  const undoLast = canUndo && !saved && <button className="button subtle" type="button" disabled={locked} onClick={() => void undo()}><Undo2 size={14} />Undo last save</button>;
+  const closeReset = () => { returnFocus.current = 'reset'; setConfirmReset(false); };
+  const restart = confirmReset ? <div className="notice reset-confirm" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); closeReset(); } }}><p>Clear everyone’s estimates and reopen voting for this story?</p><div className="actions-row"><button className="button danger" type="button" ref={resetConfirm} disabled={locked} onClick={reset}>Reset this round</button><button className="button" type="button" onClick={closeReset}>Cancel</button></div></div> : <button className={`button ${revealed ? '' : 'subtle'}`} type="button" ref={restartButton} disabled={locked} onClick={() => setConfirmReset(true)}><RotateCcw size={14} />Restart this round</button>;
 
   return <main>
     <div className="sr-only" role="status" aria-live="polite">{announcement}</div>
@@ -232,15 +243,15 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
       <section className="workspace" ref={workspace} aria-label="Estimation workspace">
         {room.self.facilitator && saved && !done && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} />}
         <div className="paper round-paper">
-          {done ? <>{room.self.facilitator && saved && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} inCard />}<div className="round-body completed-summary"><span className="complete-mark"><CheckCheck size={27} strokeWidth={1.5} /></span><h2 ref={heading} tabIndex={-1}>That’s a shared understanding.</h2><p className="muted">Every story has an agreed estimate. Your session is complete.</p><button className="button primary" onClick={exportScores}><Download size={16} />Export agreed estimates</button><div className="completion-list">{room.stories.map(story => <div className="completion-row" key={story.id}><span>{story.title}</span><strong>{story.score}</strong></div>)}</div></div></> : <>
+          {done ? <>{room.self.facilitator && saved && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} inCard />}<div className="round-body completed-summary"><span className="complete-mark"><CheckCheck size={27} strokeWidth={1.5} /></span><h2 ref={heading} tabIndex={-1}>That’s a shared understanding.</h2><p className="muted">Every story has an agreed estimate. Your session is complete.</p><button className="button primary" onClick={exportScores}><Download size={16} />Export agreed estimates</button>{undoLast}<div className="completion-list">{room.stories.map(story => <div className="completion-row" key={story.id}><span>{story.title}</span><strong>{story.score}</strong></div>)}</div></div></> : <>
             <div className="round-top"><div className="round-phase"><div className="phase-story"><span>Story {room.currentStory + 1} of {room.stories.length}</span>{titleOverflows && <button className="button subtle title-toggle" type="button" aria-expanded={titleExpanded} aria-controls="story-title" onClick={() => setTitleExpanded(!titleExpanded)}>{titleExpanded ? 'Show less' : 'Show full story'}</button>}</div><span className="phase-tag">{revealed ? <><Eye size={13} />Estimates revealed</> : <><Circle size={10} fill="currentColor" />Voting open</>}</span></div><h2 className={`round-title ${titleOverflows && !titleExpanded ? 'clamped' : ''}`} id="story-title" ref={heading} tabIndex={-1}>{currentStory?.title}</h2></div>
             <div className="round-body">
               {revealed ? <><h3 className="reveal-heading" ref={revealHeading} tabIndex={-1}>The cards are on the table.</h3><p className="muted" style={{ marginTop: 9 }}>Compare perspectives before settling on an estimate.</p>{distribution.length ? <div className="distribution" role="img" aria-label={`Revealed estimates: ${distribution.map(item => `${item.value}: ${item.count} ${item.count === 1 ? 'vote' : 'votes'}`).join(', ')}`}>{distribution.map((item, index) => <div className="distribution-row" key={item.value}><strong>{item.value}</strong><div className="distribution-bar"><span style={{ width: `${item.count / Math.max(1, votes) * 100}%`, animationDelay: `${index * 90}ms` }} /></div><small>{item.count} {item.count === 1 ? 'vote' : 'votes'}</small></div>)}</div> : <p className="notice">No votes were submitted before the reveal.</p>}
                 {spread && <p className="spread-note">{spread}</p>}
-                {room.self.facilitator ? <FinalizeForm key={room.roundId} participants={room.participants} busy={busy} locked={locked} last={room.currentStory === room.stories.length - 1} onSave={score => void finalize(score)} /> : <p className="vote-note"><UsersRound size={14} />Your facilitator will record the agreed estimate.</p>}
+                {room.self.facilitator ? <FinalizeForm key={room.roundId} participants={room.participants} busy={busy} locked={locked} last={room.currentStory === room.stories.length - 1} preset={preset} restart={restart} onSave={score => void finalize(score)} /> : <p className="vote-note"><UsersRound size={14} />Your facilitator will record the agreed estimate.</p>}
               </> : <>{restarted && <p className="notice restart-notice">{RESTART_MESSAGE}</p>}<div className="vote-label"><strong>{room.self.vote !== null ? `Your estimate is ${room.self.vote}` : 'Your estimate'}</strong><span>{room.self.vote !== null ? 'Only you can see it. You can change it before reveal.' : 'Private until the reveal. Pick your card.'}</span></div><Deck vote={room.self.vote} offline={connection !== 'live'} busy={busy} onVote={value => void act({ type: 'vote', estimate: value })} /><div className="deck-legend" id="deck-legend"><p><strong>?</strong> unsure or needs discussion · <strong>½</strong> half a point</p><p className="legend-keys"><span><kbd>←</kbd><kbd>→</kbd> move</span><span><kbd>Space</kbd> pick</span><span><span><kbd>1</kbd>–<kbd>21</kbd></span> type the number</span><span><kbd>H</kbd> ½</span></p></div></>}
-              {room.self.facilitator && <div className="facilitator-controls">{!revealed && <div className="action-bar"><button className="button primary full" type="button" ref={revealButton} disabled={locked || confirmReveal} onClick={reveal}><Eye size={16} /><span>Reveal <span className="wide-only">estimates</span>{votes !== total && ` · ${votes}/${total} voted`}</span></button>{votes === total && <p>Everyone has voted. Time to compare perspectives.</p>}{confirmReveal && <div className="notice reveal-confirm"><p>{missingVotes} {missingVotes === 1 ? 'person hasn’t' : 'people haven’t'} voted yet. Reveal without {missingVotes === 1 ? 'their estimate' : 'their estimates'}?</p><div className="actions-row"><button className="button primary" ref={revealNow} disabled={locked} onClick={reveal}>Reveal now</button><button className="button" onClick={() => { returnFocus.current = 'reveal'; setConfirmReveal(false); }}>Keep voting</button></div></div>}</div>}
-                {confirmReset ? <div className="notice"><p>Clear everyone’s estimates and reopen voting for this story?</p><div className="actions-row"><button className="button" ref={resetConfirm} disabled={locked} onClick={reset}>Reset this round</button><button className="button subtle" onClick={() => { returnFocus.current = 'reset'; setConfirmReset(false); }}>Cancel</button></div></div> : <button className="button subtle" ref={restartButton} disabled={locked} onClick={() => setConfirmReset(true)}><RotateCcw size={14} />Restart this round</button>}
+              {room.self.facilitator && !revealed && <div className="facilitator-controls">{!revealed && <div className="action-bar"><button className="button primary full" type="button" ref={revealButton} disabled={locked || confirmReveal} onClick={reveal}><Eye size={16} /><span>Reveal <span className="wide-only">estimates</span>{votes !== total && ` · ${votes}/${total} voted`}</span></button>{votes === total && <p>Everyone has voted. Time to compare perspectives.</p>}{confirmReveal && <div className="notice reveal-confirm"><p>{missingVotes} {missingVotes === 1 ? 'person hasn’t' : 'people haven’t'} voted yet. Reveal without {missingVotes === 1 ? 'their estimate' : 'their estimates'}?</p><div className="actions-row"><button className="button primary" ref={revealNow} disabled={locked} onClick={reveal}>Reveal now</button><button className="button" onClick={() => { returnFocus.current = 'reveal'; setConfirmReveal(false); }}>Keep voting</button></div></div>}</div>}
+                {!revealed && restart}{undoLast}
               </div>}
             </div>
           </>}

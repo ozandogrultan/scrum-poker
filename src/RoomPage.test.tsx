@@ -171,12 +171,12 @@ describe('Discussion and completion', () => {
     expect(screen.queryByRole('button', { name: 'Estimate 5' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save estimate & next story' })).toBeDisabled();
     const choices = screen.getByRole('group', { name: 'Agreed estimate' });
-    expect(within(choices).getAllByRole('radio').map(radio => (radio as HTMLInputElement).value)).toEqual(['3', '8']);
-    expect(screen.queryByRole('radio', { name: '5' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Other' }));
-    expect(screen.getByRole('button', { name: 'Other' })).toHaveAttribute('aria-expanded', 'true');
-    expect(within(screen.getByRole('group', { name: 'Other values' })).getAllByRole('radio')).toHaveLength(7);
-    await user.click(screen.getByRole('radio', { name: '5' }));
+    expect(within(choices).getAllByRole('radio').map(radio => (radio as HTMLInputElement).value)).toEqual(['0', '½', '1', '2', '3', '5', '8', '13', '21']);
+    expect(screen.queryByRole('button', { name: 'Other' })).not.toBeInTheDocument();
+    expect(within(choices).getByRole('radio', { name: '3, 1 vote' })).toBeInTheDocument();
+    expect(within(choices).getByRole('radio', { name: '8, 1 vote' })).toBeInTheDocument();
+    expect(within(choices).getByRole('radio', { name: '5' })).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /^5\b/ }));
     await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
     expect(act).toHaveBeenCalledWith({ type: 'finalize', score: '5' });
   });
@@ -184,7 +184,7 @@ describe('Discussion and completion', () => {
   it('records a voted value in one tap of the choice', async () => {
     const user = userEvent.setup();
     const { act } = view(revealed());
-    await user.click(screen.getByRole('radio', { name: '8' }));
+    await user.click(screen.getByRole('radio', { name: /^8\b/ }));
     await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
     expect(act).toHaveBeenCalledWith({ type: 'finalize', score: '8' });
   });
@@ -203,13 +203,13 @@ describe('Discussion and completion', () => {
     room.participants[0].estimate = '?'; room.participants[1].estimate = '?';
     view(room);
     expect(screen.queryByText(/Talk through the gap/)).not.toBeInTheDocument();
-    expect(within(screen.getByRole('group', { name: 'Other values' })).getAllByRole('radio')).toHaveLength(9);
+    expect(within(screen.getByRole('group', { name: 'Agreed estimate' })).getAllByRole('radio')).toHaveLength(9);
   });
 
   it('confirms a saved score with undo, then restores the story', async () => {
     const user = userEvent.setup();
     const { act, rerender, ...props } = view(revealed());
-    await user.click(screen.getByRole('radio', { name: '8' }));
+    await user.click(screen.getByRole('radio', { name: /^8\b/ }));
     await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
     expect(act).toHaveBeenCalledWith({ type: 'finalize', score: '8' });
     rerender(<RoomView {...props} act={act} room={snapshot({ currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }, { id: 'second', title: 'Add saved filters', score: null }] })} />);
@@ -223,7 +223,7 @@ describe('Discussion and completion', () => {
   it('drops the undo offer once the next round has a vote', async () => {
     const user = userEvent.setup();
     const { act, rerender, ...props } = view(revealed());
-    await user.click(screen.getByRole('radio', { name: '8' }));
+    await user.click(screen.getByRole('radio', { name: /^8\b/ }));
     await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
     const next = snapshot({ currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }, { id: 'second', title: 'Add saved filters', score: null }] });
     rerender(<RoomView {...props} act={act} room={next} />);
@@ -238,7 +238,7 @@ describe('Discussion and completion', () => {
     try {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const { act, rerender, ...props } = view(revealed());
-      await user.click(screen.getByRole('radio', { name: '8' }));
+      await user.click(screen.getByRole('radio', { name: /^8\b/ }));
       await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
       rerender(<RoomView {...props} act={act} room={snapshot({ currentStory: 1, revision: 2 })} />);
       expect(screen.getByRole('button', { name: /^Undo saving/ })).toBeVisible();
@@ -247,14 +247,66 @@ describe('Discussion and completion', () => {
     } finally { vi.useRealTimers(); }
   });
 
+  const afterSave = (extra: Partial<RoomSnapshot> = {}) => snapshot({ currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }, { id: 'second', title: 'Add saved filters', score: null }], ...extra });
+
+  it('keeps Undo last save available after the banner is gone, until the next round has a vote', () => {
+    const { rerender, ...props } = view(afterSave());
+    expect(screen.getByRole('button', { name: 'Undo last save' })).toBeVisible();
+    const voted = afterSave({ revision: 3 });
+    voted.participants[1].hasVoted = true;
+    rerender(<RoomView {...props} room={voted} />);
+    expect(screen.queryByRole('button', { name: 'Undo last save' })).not.toBeInTheDocument();
+  });
+
+  it('undoes from the persistent control and preselects the previous score', async () => {
+    const user = userEvent.setup();
+    const { act, rerender, ...props } = view(afterSave());
+    await user.click(screen.getByRole('button', { name: 'Undo last save' }));
+    expect(act).toHaveBeenLastCalledWith({ type: 'undoFinalize' });
+    const reopened = snapshot({ phase: 'revealed', roundId: 'round-two', revision: 3 });
+    rerender(<RoomView {...props} act={act} room={reopened} />);
+    expect(screen.getByRole('radio', { name: '8' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Save estimate & next story' })).toBeEnabled();
+  });
+
+  it('preselects the previous score after undoing from the banner', async () => {
+    const user = userEvent.setup();
+    const { act, rerender, ...props } = view(revealed());
+    await user.click(screen.getByRole('radio', { name: /^8\b/ }));
+    await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
+    rerender(<RoomView {...props} act={act} room={afterSave()} />);
+    await user.click(screen.getByRole('button', { name: /^Undo saving/ }));
+    rerender(<RoomView {...props} act={act} room={revealed()} />);
+    expect(screen.getByRole('radio', { name: /^8\b/ })).toBeChecked();
+  });
+
+  it('does not offer Undo last save to participants or on a fresh room', () => {
+    view(afterSave({ self: { id: 'guest', facilitator: false, vote: null } }));
+    expect(screen.queryByRole('button', { name: 'Undo last save' })).not.toBeInTheDocument();
+    cleanup(); view();
+    expect(screen.queryByRole('button', { name: 'Undo last save' })).not.toBeInTheDocument();
+  });
+
+  it('keeps Restart next to Save once revealed', () => {
+    view(revealed());
+    const bar = document.querySelector('.action-bar') as HTMLElement;
+    expect(within(bar).getByRole('button', { name: 'Restart this round' })).toBeVisible();
+    expect(within(bar).getByRole('button', { name: 'Save estimate & next story' })).toBeVisible();
+  });
+
   it('never offers undo to a participant', () => {
     view(snapshot({ phase: 'revealed', self: { id: 'guest', facilitator: false, vote: null } }));
     expect(screen.queryByRole('button', { name: /^Undo saving/ })).not.toBeInTheDocument();
   });
 
-  it('requires confirmation to reset the round', async () => {
+  it('requires confirmation to reset the round and cancels on Escape', async () => {
     const user = userEvent.setup();
     const { act } = view(revealed());
+    await user.click(screen.getByRole('button', { name: 'Restart this round' }));
+    expect(screen.getByRole('button', { name: 'Reset this round' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('button', { name: 'Reset this round' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restart this round' })).toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Restart this round' }));
     expect(act).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Reset this round' }));
@@ -314,7 +366,7 @@ describe('Discussion and completion', () => {
     const user = userEvent.setup();
     const one = { stories: [{ id: 'first', title: 'Improve search relevance', score: null }] };
     const { act, rerender, ...props } = view(snapshot({ phase: 'revealed', ...one, participants: [{ id: 'host', name: 'Robin', facilitator: true, online: true, hasVoted: true, estimate: '8' }], self: { id: 'host', facilitator: true, vote: '8' } }));
-    await user.click(screen.getByRole('radio', { name: '8' }));
+    await user.click(screen.getByRole('radio', { name: /^8\b/ }));
     await user.click(screen.getByRole('button', { name: 'Save estimate & finish' }));
     rerender(<RoomView {...props} act={act} room={snapshot({ phase: 'completed', currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }] })} />);
     const summary = screen.getByRole('heading', { name: 'That’s a shared understanding.' });
@@ -420,7 +472,7 @@ describe('Discussion and completion', () => {
     view(snapshot({ phase: 'revealed', self: { id: 'host', facilitator: true, vote: null } }));
     const save = screen.getByRole('button', { name: 'Save estimate & next story' });
     expect(save).toHaveAccessibleDescription('Choose an agreed estimate first');
-    await user.click(screen.getByRole('radio', { name: '5' }));
+    await user.click(screen.getByRole('radio', { name: /^5\b/ }));
     expect(save).not.toHaveAccessibleDescription('Choose an agreed estimate first');
     expect(screen.queryByText('Choose an agreed estimate first')).not.toBeInTheDocument();
   });
