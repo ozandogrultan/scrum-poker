@@ -158,7 +158,7 @@ A practical estimation worksheet, not a dashboard or marketing surface. Warm pap
 Teal is the primary action and selected-state color. Mint groups active story and phase information. Teal hover deepens instead of adding decorative effects. The revealed distribution uses desaturated green bars with visible numeric labels.
 
 ### Neutral
-Canvas separates the page from paper working surfaces. Ink carries headings and functional content; muted text carries explanations and metadata. Fine gray-green strokes define fields and worksheet divisions.
+Canvas separates the page from paper working surfaces. Ink carries headings, functional content, and compact room metadata; muted text carries secondary explanations and quiet chrome. Fine gray-green strokes define fields and worksheet divisions.
 
 ### Status
 Warm ochre notices communicate interrupted connections and confirmations. Terracotta error surfaces identify failed actions and recovery. Status never depends on color alone: text and icons state the condition.
@@ -169,7 +169,7 @@ Warm ochre notices communicate interrupted connections and confirmations. Terrac
 
 DM Sans Variable is self-hosted through Fontsource and used throughout this Operate surface. A single workhorse type family keeps the forms, story text, and numeric deck coherent. The introduction is the only large display statement; the room title is smaller so the active story stays primary.
 
-The type hierarchy uses 500-weight headings, 650-weight labels, 14px body/supporting text, and 12–13px metadata. Cards use 27px tabular numerals, falling to 25px on mobile. Heading text is balanced; long story titles and participant names can wrap. Desktop introduction text is 17px, reduced to 15px on mobile. Home display becomes 2.6rem on mobile. There is no uppercase eyebrow or monospace decoration.
+The type hierarchy uses 500-weight headings, 650-weight labels, 14px body/supporting text, and 12–13px ink-colored room metadata. Cards use 27px tabular numerals, falling to 25px on mobile. Heading text is balanced; long story titles and participant names can wrap. Desktop introduction text is 17px, reduced to 15px on mobile. Home display becomes 2.6rem on mobile. There is no uppercase eyebrow or monospace decoration.
 
 ## Layout
 
