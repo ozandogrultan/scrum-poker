@@ -252,6 +252,10 @@ describe('Discussion and completion', () => {
   it('keeps Undo last save available after the banner is gone, until the next round has a vote', () => {
     const { rerender, ...props } = view(afterSave());
     expect(screen.getByRole('button', { name: 'Undo last save' })).toBeVisible();
+    const bar = document.querySelector('.action-bar')!;
+    expect(bar.parentElement?.lastElementChild).toBe(bar);
+    expect(within(bar as HTMLElement).getByRole('button', { name: 'Undo last save' })).toBeVisible();
+    expect(within(bar as HTMLElement).getByRole('button', { name: 'Restart this round' })).toBeVisible();
     const voted = afterSave({ revision: 3 });
     voted.participants[1].hasVoted = true;
     rerender(<RoomView {...props} room={voted} />);

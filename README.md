@@ -49,7 +49,7 @@ The deck is **0 · ½ · 1 · 2 · 3 · 5 · 8 · 13 · 21 · ?**. The question 
 - **Live, not noisy:** authenticated server-sent snapshots; polling only while disconnected, automatic reconnect, and stale-update protection.
 - **Durable decisions:** SQLite commits accepted commands before sending success or updates. Reloading restores the saved room identity when browser storage is available.
 - **Fast from the keyboard:** arrows move, Space picks, type a number (13, 21), `H` for ½, `?` for unsure; focus is kept in place through reveals, resets and story changes.
-- **Useful on a small screen:** the active story comes first on mobile, the facilitator's Reveal and Save stay pinned to the bottom of the screen, and long story titles collapse behind a “Show full story” toggle.
+- **Useful on a small screen:** the active story comes first on mobile, facilitator actions follow the round content without covering it, and long story titles collapse behind a “Show full story” toggle.
 
 ## Deployment
 
