@@ -6,7 +6,7 @@ A calm, shared worksheet for team estimation. Bring a story list, invite your te
 
 [Quickstart](#quickstart) · [How it works](#how-it-works) · [Deployment](#deployment) · [Development](#development) · [Security](SECURITY.md)
 
-![Scrum Poker voting screen with a private estimate deck, the facilitator's selected card, and the team roster showing who has voted](docs/images/voting.webp)
+![Scrum Poker voting screen with a private estimate deck, the facilitator's selected card, a one-line keyboard legend, the Reveal button with its vote count, and the team roster showing who has voted](docs/images/voting.webp)
 <sub>Voting stays private: the roster shows who has voted, never what they chose.</sub>
 
 ![Scrum Poker room showing story progress, revealed estimates with a wide-spread note, score choices, facilitator controls, and the team roster](docs/images/room.webp)
@@ -48,7 +48,8 @@ The deck is **0 · ½ · 1 · 2 · 3 · 5 · 8 · 13 · 21 · ?**. The question 
 - **One room for both roles:** shared voting, story progress, presence, revealed distribution, and role-specific facilitator controls.
 - **Live, not noisy:** authenticated server-sent snapshots; polling only while disconnected, automatic reconnect, and stale-update protection.
 - **Durable decisions:** SQLite commits accepted commands before sending success or updates. Reloading restores the saved room identity when browser storage is available.
-- **Useful on a small screen:** the active story comes first on mobile, with native controls, keyboard focus, and reduced-motion support.
+- **Fast from the keyboard:** arrows move, Space picks, type a number (13, 21), `H` for ½, `?` for unsure; focus is kept in place through reveals, resets and story changes.
+- **Useful on a small screen:** the active story comes first on mobile, the facilitator's Reveal and Save stay pinned to the bottom of the screen, and long story titles collapse behind a “Show full story” toggle.
 
 ## Deployment
 

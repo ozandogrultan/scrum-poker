@@ -347,8 +347,51 @@ describe('Discussion and completion', () => {
     rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', currentStory: 1, revision: 2, self: guest })} />);
     expect(screen.getByRole('button', { name: 'Invite team' })).toHaveFocus();
     screen.getByRole('radio', { name: 'Estimate 5' }).focus();
-    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-three', revision: 3, self: guest })} />);
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-three', currentStory: 0, revision: 3, self: guest })} />);
     expect(screen.getByRole('radio', { name: 'Estimate 5' })).toHaveFocus();
+  });
+
+  it('moves a participant’s deck focus to the first card when the round is reset', () => {
+    const guest = { id: 'guest', facilitator: false, vote: '5' as const };
+    const { rerender, ...props } = view(snapshot({ self: guest }));
+    screen.getByRole('radio', { name: 'Estimate 5' }).focus();
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', revision: 2, self: { ...guest, vote: null } })} />);
+    const first = screen.getByRole('radio', { name: 'Estimate 0' });
+    expect(first).toHaveFocus();
+    expect(first.tabIndex).toBe(0);
+    expect(screen.getByRole('radio', { name: 'Estimate 5' })).not.toBeChecked();
+  });
+
+  it('moves focus into inline confirms and back on cancel', async () => {
+    const user = userEvent.setup();
+    view();
+    await user.click(screen.getByRole('button', { name: /Reveal estimates/ }));
+    expect(screen.getByRole('button', { name: 'Reveal now' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Keep voting' }));
+    expect(screen.getByRole('button', { name: /Reveal estimates/ })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Restart this round' }));
+    expect(screen.getByRole('button', { name: 'Reset this round' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Restart this round' })).toHaveFocus();
+  });
+
+  it('clamps a long story title behind a toggle only when it overflows', async () => {
+    const user = userEvent.setup();
+    view();
+    expect(screen.queryByRole('button', { name: 'Show full story' })).not.toBeInTheDocument();
+    cleanup();
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => 500 });
+    try {
+      view();
+      const title = screen.getByRole('heading', { name: 'Improve search relevance' });
+      const toggle = screen.getByRole('button', { name: 'Show full story' });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveAttribute('aria-controls', title.id);
+      expect(title).toHaveClass('clamped');
+      await user.click(toggle);
+      expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
+      expect(title).not.toHaveClass('clamped');
+    } finally { delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight; }
   });
 
   it('puts the facilitator’s primary action in a bar and trims redundant notes', () => {
@@ -402,5 +445,8 @@ describe('Discussion and completion', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
     expect(screen.getAllByText('Add saved filters')).toHaveLength(1);
     expect(screen.queryByRole('list', { name: /./ })).not.toBeInTheDocument();
+    const team = screen.getByRole('complementary', { name: 'Team participants' });
+    expect(within(team).getByText('Robin (you)')).toBeVisible();
+    expect(team.querySelector('.person-status')).toBeNull();
   });
 });
