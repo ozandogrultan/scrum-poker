@@ -90,6 +90,57 @@ describe('authoritative room transitions', () => {
   });
 });
 
+describe('undo finalize', () => {
+  async function finalized(stories = ['First story', 'Second story']) {
+    const s = setup(); const owner = await s.create(stories); const guest = await s.joinRoom(owner);
+    await s.command(owner, { type: 'vote', estimate: '3' }); await s.command(guest, { type: 'vote', estimate: '8' });
+    await s.command(owner, { type: 'reveal' });
+    expect((await s.command(owner, { type: 'finalize', score: '5' })).status).toBe(200);
+    return { s, owner, guest };
+  }
+  test('restores the revealed story with its votes and clears the score', async () => {
+    const { s, owner, guest } = await finalized();
+    expect((await s.command(owner, { type: 'undoFinalize' })).status).toBe(200);
+    const room = s.snapshot(owner);
+    expect(room.phase).toBe('revealed'); expect(room.currentStory).toBe(0); expect(room.stories[0].score).toBeNull();
+    expect(room.participants.map((p) => p.estimate)).toEqual(['3', '8']); expect(room.self.vote).toBe('3');
+    expect(s.snapshot(guest).self.vote).toBe('8');
+    expect((await s.command(owner, { type: 'undoFinalize' })).status).toBe(409);
+    expect((await s.command(owner, { type: 'finalize', score: '8' })).status).toBe(200);
+    expect(s.snapshot(owner).stories[0].score).toBe('8');
+  });
+  test('only the facilitator may undo, and stale guards are rejected', async () => {
+    const { s, owner, guest } = await finalized();
+    expect((await s.command(guest, { type: 'undoFinalize' })).status).toBe(403);
+    const old = s.snapshot(owner);
+    await s.command(owner, { type: 'reset' });
+    expect((await s.command(owner, { type: 'undoFinalize' }, old)).status).toBe(409);
+    expect(s.snapshot(owner).stories[0].score).toBe('5');
+  });
+  test('is refused once the next round has a vote or is revealed, and keeps the next votes private', async () => {
+    const { s, owner } = await finalized();
+    await s.command(owner, { type: 'vote', estimate: '2' });
+    expect((await s.command(owner, { type: 'undoFinalize' })).status).toBe(409);
+    expect(s.snapshot(owner).stories[0].score).toBe('5');
+    const projected = JSON.stringify(s.snapshot(owner));
+    expect(projected).not.toContain('lastFinalized');
+    await s.command(owner, { type: 'reveal' });
+    expect((await s.command(owner, { type: 'undoFinalize' })).status).toBe(409);
+  });
+  test('is refused before anything has been finalized', async () => {
+    const s = setup(); const owner = await s.create();
+    expect((await s.command(owner, { type: 'undoFinalize' })).status).toBe(409);
+  });
+  test('reopens the last story from a completed room', async () => {
+    const { s, owner } = await finalized(['Only story']);
+    expect(s.snapshot(owner).phase).toBe('completed');
+    expect((await s.command(owner, { type: 'undoFinalize' })).status).toBe(200);
+    const room = s.snapshot(owner);
+    expect(room.phase).toBe('revealed'); expect(room.currentStory).toBe(0); expect(room.stories[0].score).toBeNull();
+    expect(room.participants.map((p) => p.estimate)).toEqual(['3', '8']);
+  });
+});
+
 describe('capabilities, projection privacy, and isolation', () => {
   test('missing, forged, hash-as-bearer and cross-room capabilities fail ALL reads, streams and commands', async () => {
     const s = setup(); const owner = await s.create(); const alien = await s.create();

@@ -5,7 +5,7 @@ import { createRoom, friendlyError, joinRoom, readIdentity, saveIdentity } from 
 import { RoomPage } from './RoomPage';
 
 export function Header() {
-  return <header className="site-header"><a className="brand" href="/" aria-label="Scrum Poker home"><span className="brand-mark"><Layers2 size={18} strokeWidth={1.6} /></span>scrum poker<span className="muted" aria-hidden="true"> / </span></a><span className="header-note"><UsersRound size={15} />A little space to think together.</span></header>;
+  return <header className="site-header"><a className="brand" href="/" aria-label="Scrum Poker home"><span className="brand-mark"><Layers2 size={18} strokeWidth={1.6} /></span>scrum poker</a><span className="header-note"><UsersRound size={15} />A little space to think together.</span></header>;
 }
 
 export function ErrorMessage({ message }: { message: string }) {

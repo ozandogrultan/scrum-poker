@@ -12,7 +12,7 @@ All routes `/api`. JSON errors `{ error: string }`, HTTP 400/401/403/404/409/413
 - `POST /api/rooms/:id/commands` body `Command` → `RoomSnapshot`
 - `GET /api/rooms/:id/events` → fetch-authenticated SSE. `event: snapshot` / JSON `RoomSnapshot` immediately and after changes; `event: heartbeat` every 15s; `event: expired` ends expired streams; `event: stream-error` with `{error}` ends unavailable streams. Abort fetch to disconnect. HTTP errors possible before stream; process stream-error too.
 
-Commands always include `{roundId: string, revision: number}` from current snapshot. Types: `{type:'vote', estimate: Estimate}`, `{type:'reveal'}`, `{type:'reset'}`, `{type:'finalize', score: Score}`. Stale guard → 409, refresh latest snapshot and ask user to retry (do not silently replay transitions). Only facilitator may reveal/reset/finalize. All participants including facilitator vote through same command. Reset invalidates roundId and clears votes. Finalize only revealed; advances next story automatically, or completes.
+Commands always include `{roundId: string, revision: number}` from current snapshot. Types: `{type:'vote', estimate: Estimate}`, `{type:'reveal'}`, `{type:'reset'}`, `{type:'finalize', score: Score}`, `{type:'undoFinalize'}`. Stale guard → 409, refresh latest snapshot and ask user to retry (do not silently replay transitions). Only facilitator may reveal/reset/finalize/undoFinalize. All participants including facilitator vote through same command. Reset invalidates roundId and clears votes. Finalize only revealed; advances next story automatically, or completes. `undoFinalize` reopens the most recently finalized story in phase `revealed` with its previous votes restored (visible as in any revealed projection), clears its score and issues a new `roundId`. It also works from `completed`. It returns 409 when nothing was finalized, when the newly current story has any vote, or when it is already revealed. Only the last finalized story can be undone; a later finalize replaces it.
 
 ## Shared exports (exact)
 
@@ -36,11 +36,11 @@ export interface RoomSnapshot {
 export interface Identity {token: string; participantId: string}
 export interface Admission {identity: Identity; room: RoomSnapshot}
 export type Command = {roundId:string; revision:number} & (
-  {type:'vote';estimate:Estimate}|{type:'reveal'}|{type:'reset'}|{type:'finalize';score:Score}
+  {type:'vote';estimate:Estimate}|{type:'reveal'}|{type:'reset'}|{type:'finalize';score:Score}|{type:'undoFinalize'}
 );
 ```
 
-`currentStory` is zero-based; equals stories.length when completed. `version` orders delivery snapshots (ignore older versions); `revision` guards persisted mutations. Presence may update version without revision. Never expose other votes until phase revealed; self.vote is private in all projections. Finalized story score is public; prior per-person votes cleared. No tokens/hashes in snapshots.
+`currentStory` is zero-based; equals stories.length when completed. `version` orders delivery snapshots (ignore older versions); `revision` guards persisted mutations. Presence may update version without revision. Never expose other votes until phase revealed; self.vote is private in all projections. Finalized story score is public; the finalized story’s per-person votes are kept server-side only for `undoFinalize` and never appear in a snapshot until the story is reopened. No tokens/hashes in snapshots.
 
 ## Toolchain / limits
 

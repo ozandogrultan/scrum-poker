@@ -12,6 +12,7 @@ interface Room {
   id: string; title: string; revision: number; roundId: string;
   phase: RoomSnapshot['phase']; currentStory: number; stories: Story[];
   members: Member[]; expiresAt: number;
+  lastFinalized?: { story: number; votes: Record<string, Estimate> };
 }
 type Listener = { memberId: string; send: (snapshot: RoomSnapshot | null, reason?: 'unavailable') => void };
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -82,7 +83,7 @@ export class RoomService {
       const room = this.read(id); const member = this.member(room, token);
       if (command.type !== 'vote' && !member.facilitator) throw new Problem(403, 'Only the facilitator can manage the round.');
       if (command.roundId !== room.roundId || command.revision !== room.revision) throw new Problem(409, 'The round changed. Review the latest worksheet and try again.');
-      if (room.phase === 'completed') throw new Problem(409, 'This session is complete.');
+      if (room.phase === 'completed' && command.type !== 'undoFinalize') throw new Problem(409, 'This session is complete.');
       if (command.type === 'vote') {
         if (room.phase !== 'voting') throw new Problem(409, 'Voting is closed for this round.');
         member.vote = command.estimate;
@@ -91,8 +92,16 @@ export class RoomService {
         room.phase = 'revealed';
       } else if (command.type === 'reset') {
         room.phase = 'voting'; room.roundId = randomUUID(); room.members.forEach((person) => { person.vote = null; });
+      } else if (command.type === 'undoFinalize') {
+        const last = room.lastFinalized;
+        if (!last || last.story !== room.currentStory - 1) throw new Problem(409, 'There is no saved estimate to undo.');
+        if (room.phase === 'revealed' || room.members.some((person) => person.vote !== null)) throw new Problem(409, 'The next story already has estimates, so the saved score can’t be undone.');
+        room.currentStory = last.story; room.stories[last.story].score = null; room.roundId = randomUUID(); room.phase = 'revealed';
+        room.members.forEach((person) => { person.vote = last.votes[person.id] ?? null; });
+        delete room.lastFinalized;
       } else {
         if (room.phase !== 'revealed') throw new Problem(409, 'Reveal the estimates before finalizing.');
+        room.lastFinalized = { story: room.currentStory, votes: Object.fromEntries(room.members.flatMap((person) => person.vote === null ? [] : [[person.id, person.vote]])) };
         room.stories[room.currentStory].score = command.score;
         room.currentStory++; room.roundId = randomUUID(); room.members.forEach((person) => { person.vote = null; });
         room.phase = room.currentStory === room.stories.length ? 'completed' : 'voting';

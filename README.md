@@ -6,7 +6,7 @@ A calm, shared worksheet for team estimation. Bring a story list, invite your te
 
 [Quickstart](#quickstart) · [How it works](#how-it-works) · [Deployment](#deployment) · [Development](#development) · [Security](SECURITY.md)
 
-![Scrum Poker room showing story progress, revealed estimates, facilitator controls, and the team roster](docs/images/room.webp)
+![Scrum Poker room showing story progress, revealed estimates with a wide-spread note, score choices, facilitator controls, and the team roster](docs/images/room.webp)
 <sub>The actual worksheet during a browser check, with synthetic review names and stories.</sub>
 
 ## Quickstart
@@ -109,7 +109,7 @@ Self-hosted DM Sans and Lucide icons form the frontend’s visual layer. Vitest,
 | `tests/server.test.ts`, `src/*.test.tsx` | Backend/security and frontend regression suites |
 | `public/` | Same-origin SVG, ICO, and touch-icon assets copied into the production build |
 
-The backend owns every transition: **voting → revealed → finalize → next story / completed**. Commands carry the current round ID and revision. A stale action refreshes the worksheet and asks the user to retry; it is never silently replayed. Before reveal, HTTP and SSE omit everyone else’s estimate.
+The backend owns every transition: **voting → revealed → finalize → next story / completed**, with a facilitator-only undo of the last finalize. Commands carry the current round ID and revision. A stale action refreshes the worksheet and asks the user to retry; it is never silently replayed. Before reveal, HTTP and SSE omit everyone else’s estimate.
 
 [API contract](API-CONTRACT.md) · [Product behavior](PRODUCT.md) · [Design system](DESIGN.md)
 
@@ -119,4 +119,4 @@ The backend owns every transition: **voting → revealed → finalize → next s
 - **100 stories**, 500 characters per story, **50 people** per room; names up to 60 characters and titles up to 120. The server stores at most 10,000 rooms.
 - **64 KiB** request bodies; at most 5 streams per person, 160 per room, and 2,000 server-wide, plus bounded request rates.
 - No accounts, verified names, identity recovery, facilitator transfer, participant removal, or story editing after creation.
-- No external integrations or retained individual-vote history. CSV contains finalized scores, not private per-person estimates.
+- No external integrations. Individual votes are retained only for the most recently finalized story so it can be undone. CSV contains finalized scores, not private per-person estimates.

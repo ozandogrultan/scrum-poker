@@ -18,5 +18,5 @@ export interface Identity { token: string; participantId: string }
 export interface Admission { identity: Identity; room: RoomSnapshot }
 export type Command = { roundId: string; revision: number } & (
   { type: 'vote'; estimate: Estimate } | { type: 'reveal' } |
-  { type: 'reset' } | { type: 'finalize'; score: Score }
+  { type: 'reset' } | { type: 'finalize'; score: Score } | { type: 'undoFinalize' }
 );

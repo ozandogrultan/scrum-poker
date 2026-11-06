@@ -12,5 +12,6 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('vote'), ...guard, estimate: z.enum(DECK) }).strict(),
   z.object({ type: z.literal('reveal'), ...guard }).strict(),
   z.object({ type: z.literal('reset'), ...guard }).strict(),
+  z.object({ type: z.literal('undoFinalize'), ...guard }).strict(),
   z.object({ type: z.literal('finalize'), ...guard, score: z.enum(SCORES) }).strict(),
 ]);

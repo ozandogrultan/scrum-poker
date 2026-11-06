@@ -37,7 +37,10 @@ colors:
   error-line: "#e8c7b9"
   invalid: "#a83b2f"
   disconnected: "#8b6029"
-  estimate-shadow: "#2d4a3550"
+  estimate-shadow: "#2d4a3566"
+  card-back: "#f1f2ea"
+  card-face-line: "#e3e6dc"
+  card-edge: "#124d42"
 typography:
   display:
     fontFamily: "DM Sans Variable, sans-serif"
@@ -90,6 +93,9 @@ typography:
     fontSize: "12px"
   compact:
     fontSize: "11px"
+  score-choice:
+    fontSize: "18px"
+    fontWeight: 550
   estimate:
     fontSize: "27px"
     fontWeight: 500
@@ -98,7 +104,7 @@ rounded:
   tag: "4px"
   identity: "5px"
   control: "6px"
-  estimate: "7px"
+  estimate: "8px"
   paper: "12px"
 spacing:
   tight: "8px"
@@ -171,25 +177,27 @@ The shell is centered at a maximum width of 1440px with 48px desktop side paddin
 
 Home uses an introduction beside a working setup form, then stacks at 760px. Room uses a 250px story rail, flexible estimation workspace, and 230px roster separated by 24px gaps. Through 1150px the roster moves below the workspace. At 760px the active task comes first, followed by the team and complete story list. No horizontally scrolling table is required.
 
-Estimate cards use five columns, reduced to four at 380px. Controls are at least 46px tall; estimate cards are 82–88px tall. Fields stack vertically. Long content wraps rather than forcing a wider viewport.
+Estimate cards use five columns, reduced to four at 380px. The Reveal label drops “estimates” on narrow screens and keeps the vote count; the header tagline hides below 520px. Controls are at least 46px tall; estimate cards are 84–92px tall. Fields stack vertically. Long content wraps rather than forcing a wider viewport.
 
 ## Elevation & Depth
 
-Paper working surfaces are flat, outlined regions. Only the creation form and estimate cards have ambient depth: setup uses `0 12px 32px -20px #45574740`; estimates use `0 3px 5px -4px #2d4a3550`. The chosen card rises 3px with `0 5px 10px -5px #18655660`. These shadows suggest a touchable choice, not floating application windows.
+Paper working surfaces are flat, outlined regions. Only the creation form and estimate cards have ambient depth: setup uses `0 12px 32px -20px #45574740`; estimates use `0 6px 8px -6px #2d4a3566`. Each card sits on a second sheet (`card-back`, offset 4px) and carries an inset hairline face frame. Hover lifts a card 3px (`0 9px 10px -7px #2d4a3566`); the chosen card rises 6px onto a `card-edge` teal sheet with `0 14px 14px -9px #18655680`. These shadows suggest a touchable choice, not floating application windows.
 
 ## Shapes
 
-Paper surfaces use 12px corners. Controls use 6px, estimate cards 7px, state tags 4px, and distribution tracks 3px. Avatars are circular initials, never stock portraits. Border strokes stay at 1px. The brand is a small outlined card with a slight rotation and a consistent Lucide stroke icon. The favicon carries that identity into a teal tile: two overlapping mint/paper estimate cards, with a hand-drawn numeric five. Same-origin SVG is the primary browser icon; a multi-size ICO and 180px touch icon provide fallbacks.
+Paper surfaces use 12px corners. Controls use 6px, estimate cards 8px, state tags 4px, and distribution tracks 3px. Avatars are circular initials, never stock portraits. Border strokes stay at 1px, except estimate cards at 1.5px. The brand is a small outlined card with a slight rotation and a consistent Lucide stroke icon. The favicon carries that identity into a teal tile: two overlapping mint/paper estimate cards, with a hand-drawn numeric five. Same-origin SVG is the primary browser icon; a multi-size ICO and 180px touch icon provide fallbacks.
 
 ## Components
 
 - **Actions:** solid teal for the next primary task, paper for secondary actions, transparent muted text for reset/cancel. Disabled controls remain recognizable and noninteractive. Reveal and reset use inline confirmations, not modals.
 - **Fields:** persistent visible labels, paper fills, gray-green strokes, clear placeholders, and adjacent practical help. Native required validation and bounded lengths support the server constraints.
-- **Estimate cards:** native buttons with `aria-pressed`, an explicit selected check, large tabular numerals, and a subtle 3px lift. Selection is authoritative server state, not optimistic local state.
-- **Story progress:** ordered list with a mint active row, numeric finalized scores, and a labeled progressbar.
-- **Roster:** initials, name, role, presence, and concealed/revealed vote state. Away participants remain visible.
-- **Distribution:** labeled, noninteractive bars appear only after reveal. The agreed score is a native select, never an automatically chosen average.
-- **Feedback:** live status, clear errors, reconnect recovery, truthful clipboard success, a visible manual-copy fallback, and storage warnings. Offline actions disable until the authenticated stream reconnects.
+- **Estimate deck:** a `radiogroup` of native buttons with `role="radio"` and `aria-checked`, one Tab stop (roving tabindex), an explicit selected check and large tabular numerals. Arrow keys, Home and End move focus only; Space or Enter picks, and a number or `?` key picks directly. Cards read as physical stock: 1.5px border, stacked back sheet, inset face frame, 6px selected lift. A legend beneath explains `?` (unsure or needs discussion) and `½`. Selection is authoritative server state, not optimistic local state. While a request is in flight cards stay focusable (`aria-disabled`).
+- **Story progress:** ordered list with a mint active row, numeric finalized scores, titles clamped to two lines (full title in the `title` attribute and the workspace), and a labeled progressbar. When the session is complete the list is replaced by the completion list in the workspace (the rail keeps only progress, hidden on mobile).
+- **Roster:** initials, name, a Facilitator label (participants carry none), Away presence, and concealed/revealed vote state as real text (visually hidden beside the icon). Away participants remain visible.
+- **Distribution:** labeled, noninteractive bars appear only after reveal and grow in with a short stagger. A guidance note appears when the highest and lowest numeric votes are two or more deck steps apart; it never blocks saving.
+- **Finalize choices:** the agreed score is a radio group of the distinct numeric values that were voted (deck order), an “Other” disclosure for the remaining numeric values, and a Save button. Never an automatically chosen average.
+- **Undo confirmation:** after Save the facilitator sees an inline mint “Saved <score> for <story>” line with an Undo button in a polite status region. It disappears after about 10 seconds or once the next round has a vote or reveal. Focus moves to the story heading.
+- **Feedback:** one visually hidden polite status region announces connection, clipboard and vote changes; visible notices carry no live role of their own. Also: live status, clear errors, reconnect recovery, truthful clipboard success, a visible manual-copy fallback, and storage warnings. Offline actions disable until the authenticated stream reconnects.
 - **Focus and motion:** 3px teal keyboard focus rings with 4px offset, tinted selection/caret/scrollbars, short card state transitions, and reduced-motion overrides. Content is never hidden behind an entrance animation.
 
 ## Do's and Don'ts

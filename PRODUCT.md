@@ -10,7 +10,7 @@ Scrum Poker is a small, synchronous estimation worksheet for a team discussing a
 2. Share the random `/rooms/:id` link. Invitees join with a display name; matching names never reuse or replace an existing identity.
 3. Select or change a private estimate. Teammates see only whether a person has voted. The caller sees their own saved estimate.
 4. The facilitator reveals at any time, including when someone is away. The distribution and individual estimates become visible to all room members.
-5. Discuss, then choose a final score from the numeric deck. Finalizing advances to the next story automatically.
+5. Discuss, then choose a final score from the numeric deck. Finalizing advances to the next story automatically; the facilitator sees a short “Saved” confirmation with an Undo that reopens the story with its votes until the next round receives a vote (about 10 seconds in the UI). A wide spread of votes is flagged as guidance before saving.
 6. Reset the current story if another private round is useful. Reset changes the round ID, invalidates old requests, and removes all votes.
 7. Complete the list and export the agreed story scores as formula-safe CSV.
 
