@@ -5,7 +5,7 @@ import { dirname } from 'node:path';
 import type { Admission, Command, Estimate, RoomSnapshot, Story } from '../shared/types';
 
 export class Problem extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: 'session_completed' | 'room_full') { super(message); }
 }
 interface Member { id: string; name: string; facilitator: boolean; hash: string; vote: Estimate | null }
 interface Room {
@@ -66,8 +66,8 @@ export class RoomService {
     const { member, token } = this.newMember(name, false);
     const room = this.db.transaction(() => {
       const room = this.read(id);
-      if (room.members.length >= 50) throw new Problem(409, 'This room has reached its 50-person limit.');
-      if (room.phase === 'completed') throw new Problem(409, 'This session is complete. Ask the facilitator for the exported worksheet.');
+      if (room.phase === 'completed') throw new Problem(409, 'This session is complete. Ask the facilitator for the exported worksheet.', 'session_completed');
+      if (room.members.length >= 50) throw new Problem(409, 'This room has reached its 50-person limit.', 'room_full');
       room.members.push(member); room.revision++; this.save(room); return room;
     })();
     this.broadcast(room);

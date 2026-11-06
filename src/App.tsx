@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, Check, CheckCheck, Layers2, LockKeyhole, UsersRound } from 'lucide-react';
 import type { Admission } from '../shared/types';
-import { createRoom, friendlyError, joinRoom, readIdentity, saveIdentity } from './api';
+import { ApiError, createRoom, friendlyError, joinRoom, readIdentity, saveIdentity } from './api';
 import { RoomPage } from './RoomPage';
 
 export function Header() {
@@ -59,12 +59,14 @@ export function Join({ id, onAdmission }: { id: string; onAdmission: (admission:
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [completed, setCompleted] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) { setError('Enter your name to join the team.'); return; }
     setBusy(true); setError('');
-    try { onAdmission(await joinRoom(id, name.trim())); } catch (failure) { setError(friendlyError(failure)); } finally { setBusy(false); }
+    try { onAdmission(await joinRoom(id, name.trim())); } catch (failure) { setError(friendlyError(failure)); setCompleted(failure instanceof ApiError && failure.status === 409 && failure.code === 'session_completed'); } finally { setBusy(false); }
   }
+  if (completed) return <main className="page-centered"><section className="paper join-paper"><h1>This session is complete.</h1><p className="muted" role="status">Ask the facilitator for the exported worksheet. New participants can’t join a completed session.</p><a className="button primary" href="/">Start a new session<ArrowRight size={16} /></a></section></main>;
   return <main className="page-centered"><section className="paper join-paper"><h1>Pull up a chair.</h1><p className="muted">You’ve been invited to estimate with your team. Add your name to join the room.</p><form onSubmit={submit}><div className="field"><label htmlFor="join-name">Your name</label><input id="join-name" required autoComplete="given-name" maxLength={60} value={name} placeholder="How your team knows you" onChange={event => setName(event.target.value)} /></div>{error && <ErrorMessage message={error} />}<button className="button primary full" disabled={busy}>{busy ? 'Joining the room…' : 'Join session'}<ArrowRight size={16} /></button></form><p className="form-footnote">Your vote is private until the facilitator reveals it.</p></section></main>;
 }
 

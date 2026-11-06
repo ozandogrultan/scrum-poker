@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { Home, Join } from './App';
-import { createRoom, joinRoom } from './api';
+import { ApiError, createRoom, friendlyError, joinRoom } from './api';
 import { admission } from './test-fixtures';
 
 vi.mock('./api', async importOriginal => ({ ...await importOriginal<typeof import('./api')>(), createRoom: vi.fn(), joinRoom: vi.fn() }));
@@ -51,6 +51,23 @@ describe('Create session', () => {
 });
 
 describe('Join session', () => {
+  it('replaces completed admission with worksheet guidance and no futile join retry', async () => {
+    vi.mocked(joinRoom).mockRejectedValue(new ApiError(409, 'unsafe upstream message', 'session_completed'));
+    const user = userEvent.setup();
+    render(<Join id={'a'.repeat(32)} onAdmission={vi.fn()} />);
+    await user.type(screen.getByLabelText('Your name'), 'Late visitor');
+    await user.click(screen.getByRole('button', { name: 'Join session' }));
+    expect(screen.getByRole('heading', { name: 'This session is complete.' })).toBeVisible();
+    expect(screen.getByText(/Ask the facilitator for the exported worksheet/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Join session' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/unsafe upstream/)).not.toBeInTheDocument();
+  });
+
+  it('distinguishes safe admission errors from stale command conflicts', () => {
+    expect(friendlyError(new ApiError(409, 'unsafe', 'room_full'))).toBe('This room has reached its 50-person limit. Ask the facilitator for the exported worksheet.');
+    expect(friendlyError(new ApiError(409, 'unsafe', 'unknown'))).toMatch(/round changed/);
+    expect(friendlyError(new ApiError(409, 'unsafe'))).toMatch(/round changed/);
+  });
   it('joins the requested room with a named identity', async () => {
     const user = userEvent.setup();
     const onAdmission = vi.fn();

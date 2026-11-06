@@ -66,7 +66,9 @@ describe('authoritative room transitions', () => {
     await s.command(owner, { type: 'reveal' }); await s.command(owner, { type: 'finalize', score: '½' });
     expect(s.snapshot(owner).phase).toBe('completed'); expect(s.snapshot(owner).currentStory).toBe(2);
     for (const payload of [{ type: 'vote', estimate: '3' }, { type: 'reset' }, { type: 'reveal' }, { type: 'finalize', score: '3' }]) expect((await s.command(owner, payload)).status).toBe(409);
-    expect((await s.request(`/api/rooms/${owner.room.id}/join`, 'POST', undefined, { name: 'Late' })).status).toBe(409);
+    const late = await s.request(`/api/rooms/${owner.room.id}/join`, 'POST', undefined, { name: 'Late' });
+    expect(late.status).toBe(409);
+    expect(await late.json()).toMatchObject({ code: 'session_completed' });
   });
   test('same-story reset invalidates every stale command, including stale resets with new revision', async () => {
     const s = setup(); const owner = await s.create();

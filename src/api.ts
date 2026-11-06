@@ -1,7 +1,7 @@
 import type { Admission, Command, Identity, RoomSnapshot } from '../shared/types';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 
 export async function request<T>(path: string, options: { method?: string; body?: unknown; identity?: Identity; signal?: AbortSignal } = {}): Promise<T> {
@@ -13,8 +13,9 @@ export async function request<T>(path: string, options: { method?: string; body?
   });
   if (!response.ok) {
     let message = 'The server could not complete that request. Please try again.';
-    try { message = (await response.json()).error || message; } catch { /* Non-JSON upstream failures still need an actionable message. */ }
-    throw new ApiError(response.status, message);
+    let code: string | undefined;
+    try { const failure = await response.json(); message = failure.error || message; code = failure.code; } catch { /* Non-JSON upstream failures still need an actionable message. */ }
+    throw new ApiError(response.status, message, code);
   }
   return response.json() as Promise<T>;
 }
@@ -47,7 +48,11 @@ export function friendlyError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 404) return 'This room was not found or has expired. Check your invite link or start a new session.';
     if (error.status === 401 || error.status === 403) return 'Your room access is no longer valid. You can rejoin with your name, but facilitator access cannot be recovered.';
-    if (error.status === 409) return 'The round changed while you were acting. We’ve refreshed the room. Review it and try again.';
+    if (error.status === 409) {
+      if (error.code === 'session_completed') return 'This session is complete. Ask the facilitator for the exported worksheet.';
+      if (error.code === 'room_full') return 'This room has reached its 50-person limit. Ask the facilitator for the exported worksheet.';
+      return 'The round changed while you were acting. We’ve refreshed the room. Review it and try again.';
+    }
     if (error.status === 429) return 'Too many requests. Wait a moment, then try again.';
     return error.message;
   }

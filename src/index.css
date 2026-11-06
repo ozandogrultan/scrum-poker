@@ -168,6 +168,14 @@ kbd { font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); min-w
 .distribution-row small { color: var(--ink); text-align: right; }
 .finalize-form { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 .finalize-form .field { margin-bottom: 14px; }
+@media (min-width: 1151px) {
+  .round-paper.revealed .round-top { padding-block: 16px; }
+  .round-paper.revealed .round-phase { margin-bottom: 12px; }
+  .round-paper.revealed .round-body { padding-top: 22px; }
+  .round-paper.revealed .distribution { margin-top: 18px; }
+  .round-paper.revealed .spread-note { margin-top: 14px; }
+  .round-paper.revealed .finalize-form { margin-top: 16px; padding-top: 16px; }
+}
 .score-field { border: 0; padding: 0; margin-inline: 0; min-width: 0; }
 .score-field legend { padding: 0; margin-bottom: 9px; font-size: 13px; font-weight: 650; }
 .score-choices { display: flex; flex-wrap: wrap; gap: 12px 8px; }

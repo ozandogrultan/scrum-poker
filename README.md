@@ -49,7 +49,7 @@ The deck is **0 · ½ · 1 · 2 · 3 · 5 · 8 · 13 · 21 · ?**. The question 
 - **Live, not noisy:** authenticated server-sent snapshots; polling only while disconnected, automatic reconnect, and stale-update protection.
 - **Durable decisions:** SQLite commits accepted commands before sending success or updates. Reloading restores the saved room identity when browser storage is available.
 - **Fast from the keyboard:** arrows move, Space picks, type a number (13, 21), `H` for ½, `?` for unsure; focus is kept in place through reveals, resets and story changes.
-- **Useful on a small screen:** the active story comes first on mobile, facilitator actions follow the round content without covering it, and long story titles collapse behind a “Show full story” toggle.
+- **Useful on a small screen:** the active story comes first on mobile, facilitator actions follow the round content without covering it, and an explicit reset brings an offscreen story and deck back into view. Long story titles collapse behind a “Show full story” toggle; desktop revealed-round spacing keeps Save and Restart visible with the full agreed-score deck.
 
 ## Deployment
 
@@ -119,7 +119,7 @@ The backend owns every transition: **voting → revealed → finalize → next s
 
 ## Honest limits
 
-- **Seven days per room**, measured from creation. Existing members can revisit completed rooms until expiry; completed rooms reject new joins.
+- **Seven days per room**, measured from creation. Existing members can revisit completed rooms until expiry; completed rooms hide invitations and direct new joiners to ask the facilitator for the exported worksheet.
 - **100 stories**, 500 characters per story, **50 people** per room; names up to 60 characters and titles up to 120. The server stores at most 10,000 rooms.
 - **64 KiB** request bodies; at most 5 streams per person, 160 per room, and 2,000 server-wide, plus bounded request rates.
 - No accounts, verified names, identity recovery, facilitator transfer, participant removal, or story editing after creation.

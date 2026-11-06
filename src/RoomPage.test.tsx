@@ -323,6 +323,25 @@ describe('Discussion and completion', () => {
     expect(screen.getByRole('group', { name: 'Agreed estimate' })).toBeVisible();
   });
 
+  it.each(['offscreen', 'visible', 'unrelated focus'] as const)('restores reset orientation only when needed: %s', async state => {
+    const user = userEvent.setup();
+    const act = vi.fn().mockImplementation(async () => {
+      if (state === 'unrelated focus') screen.getByRole('button', { name: 'Invite team' }).focus();
+      return true;
+    });
+    view(revealed(), { act });
+    const title = screen.getByRole('heading', { name: 'Improve search relevance' });
+    vi.spyOn(title, 'getBoundingClientRect').mockReturnValue({ top: state === 'visible' ? 40 : -238, bottom: state === 'visible' ? 80 : -198 } as DOMRect);
+    const workspace = screen.getByRole('region', { name: 'Estimation workspace' });
+    const scroll = vi.fn();
+    workspace.scrollIntoView = scroll;
+    await user.click(screen.getByRole('button', { name: 'Restart this round' }));
+    await user.click(screen.getByRole('button', { name: 'Reset this round' }));
+    expect(scroll).toHaveBeenCalledTimes(state === 'offscreen' ? 1 : 0);
+    if (state === 'unrelated focus') expect(screen.getByRole('button', { name: 'Invite team' })).toHaveFocus();
+    else expect(title).toHaveFocus();
+  });
+
   it('tells participants when the facilitator restarted the round, until they vote', () => {
     const guest = { id: 'guest', facilitator: false, vote: null as null | '5' };
     const { rerender, ...props } = view(snapshot({ phase: 'revealed', self: guest }));
@@ -481,12 +500,12 @@ describe('Discussion and completion', () => {
     expect(screen.queryByText('Choose an agreed estimate first')).not.toBeInTheDocument();
   });
 
-  it('keeps Invite primary only while the facilitator is alone, and secondary when complete', () => {
+  it('keeps Invite primary only while alone and hides it when complete', () => {
     const done = { phase: 'completed' as const, currentStory: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '5' as const }, { id: 'second', title: 'Add saved filters', score: '3' as const }] };
     view(snapshot(done));
     expect(screen.getByText('Complete')).toBeVisible();
     expect(screen.queryByText('Live session')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Invite team' })).not.toHaveClass('primary');
+    expect(screen.queryByRole('button', { name: 'Invite team' })).not.toBeInTheDocument();
     cleanup(); view();
     expect(screen.getByRole('button', { name: 'Invite team' })).not.toHaveClass('primary');
     cleanup(); view(snapshot({ participants: [{ id: 'host', name: 'Robin', facilitator: true, online: true, hasVoted: false }] }));

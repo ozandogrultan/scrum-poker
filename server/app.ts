@@ -110,7 +110,7 @@ export function createApp(service: RoomService, options: { origin?: string; now?
   }
   app.notFound((c) => c.json({ error: 'Not found.' }, 404));
   app.onError((error, c) => {
-    if (error instanceof Problem) return c.json({ error: error.message }, error.status as 400);
+    if (error instanceof Problem) return c.json({ error: error.message, ...(error.code ? { code: error.code } : {}) }, error.status as 400);
     if (error instanceof z.ZodError) return c.json({ error: 'Check your input. Names: 1–60 characters; title: 1–120; stories: 1–100, up to 500 characters each. Use an available estimate and the current round.' }, 400);
     if (error instanceof SyntaxError) return c.json({ error: 'Invalid JSON request.' }, 400);
     return c.json({ error: 'The server could not complete this request. Please try again.' }, 500);

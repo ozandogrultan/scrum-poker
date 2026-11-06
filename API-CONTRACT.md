@@ -4,10 +4,10 @@ Stable shared module: `shared/types.ts` (types and deck constants; no runtime se
 
 ## HTTP
 
-All routes `/api`. JSON errors `{ error: string }`, HTTP 400/401/403/404/409/413/429/500/503. No CORS. Bearer capability in `Authorization: Bearer <token>` for ALL room reads, commands and SSE. Never token URLs. Create/join return a new identity once; store per-room identity in browser localStorage (handle unavailable storage). Room IDs are random 32 lowercase hex characters. No unauthenticated room metadata endpoint.
+All routes `/api`. JSON errors `{ error: string, code?: 'session_completed' | 'room_full' }`, HTTP 400/401/403/404/409/413/429/500/503. No CORS. Bearer capability in `Authorization: Bearer <token>` for ALL room reads, commands and SSE. Never token URLs. Create/join return a new identity once; store per-room identity in browser localStorage (handle unavailable storage). Room IDs are random 32 lowercase hex characters. No unauthenticated room metadata endpoint.
 
 - `POST /api/rooms` body `{name, title, stories: string[]}` → 201 `Admission`
-- `POST /api/rooms/:id/join` body `{name}` → 201 `Admission`. Duplicate names create distinct participants, never replace identities.
+- `POST /api/rooms/:id/join` body `{name}` → 201 `Admission`. Duplicate names create distinct participants, never replace identities. Admission 409 codes distinguish `session_completed` (ask the facilitator for the exported worksheet, without a join retry) and `room_full` from command conflicts. Clients use allowlisted copy rather than arbitrary conflict messages. Completion takes precedence over capacity.
 - `GET /api/rooms/:id` → `RoomSnapshot`
 - `POST /api/rooms/:id/commands` body `Command` → `RoomSnapshot`
 - `GET /api/rooms/:id/events` → fetch-authenticated SSE. `event: snapshot` / JSON `RoomSnapshot` immediately and after changes; `event: heartbeat` every 15s; `event: expired` ends expired streams; `event: stream-error` with `{error}` ends unavailable streams. Abort fetch to disconnect. HTTP errors possible before stream; process stream-error too.

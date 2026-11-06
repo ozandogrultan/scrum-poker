@@ -11,7 +11,7 @@ Scrum Poker is a small, synchronous estimation worksheet for a team discussing a
 3. Select or change a private estimate, by pointer or keyboard (arrows, Space, typed numbers such as 13 or 21, `H` or `/` for ½, `?`). Teammates see only whether a person has voted. The caller sees their own saved estimate. Very long story titles are clamped with a “Show full story” toggle so the deck and Reveal stay in view.
 4. The facilitator reveals at any time, including when someone is away. The distribution and individual estimates become visible to all room members.
 5. Discuss, then choose a final score from the full numeric deck (with voted values highlighted and marked with vote counts). Finalizing advances to the next story automatically; the facilitator sees a 10-second “Saved” banner with Undo and retains a persistent “Undo last save” control for as long as the next round has no votes and is not revealed. Undoing reopens the story with its votes and preselects the previously chosen score. A wide spread of votes is flagged as guidance before saving.
-6. Reset the current story if another private round is useful. Reset changes the round ID, invalidates old requests, and removes all votes; participants see a short “The facilitator restarted this round. Vote again.” notice and keyboard focus returns to the first card.
+6. Reset the current story if another private round is useful. Reset changes the round ID, invalidates old requests, and removes all votes; participants see a short “The facilitator restarted this round. Vote again.” notice and keyboard focus returns to the first card. After the facilitator explicitly resets, the story heading and deck return into view only if the heading is offscreen; focus on an unrelated control is preserved.
 7. Complete the list and export the agreed story scores as formula-safe CSV.
 
 ## Identities and connectivity
@@ -30,7 +30,7 @@ The client uses React 19, TypeScript, native form controls, self-hosted typograp
 
 - Fixed Fibonacci-style deck: `0, ½, 1, 2, 3, 5, 8, 13, 21, ?`. Final score must be numeric.
 - 1–100 stories, 500 characters per story, 50 members, 60-character names, 120-character titles, 64 KiB request body.
-- Fixed seven-day room life; 10,000-room storage cap. Members can revisit a completed room until it expires; completed rooms reject new members.
+- Fixed seven-day room life; 10,000-room storage cap. Members can revisit a completed room until it expires. Completed rooms hide invitations; new visitors who attempt to join receive completion guidance to ask the facilitator for the exported worksheet, without a join retry.
 - Five simultaneous streams per person, 160 per room, 2,000 total; bounded per-minute create/join/command/read rates.
 - No accounts, verified names, facilitator recovery/transfer, member deletion, story editing after creation, or retrospective individual-vote history.
 - No multi-process fan-out, cloud dependencies, deployment orchestration, or migration of anonymous legacy sessions. The rebuilt schema is separate from the obsolete legacy server storage.

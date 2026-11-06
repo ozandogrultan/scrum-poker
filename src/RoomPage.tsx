@@ -163,7 +163,8 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   useEffect(() => {
     if (focusTick === 0) return;
     heading.current?.focus({ preventScroll: true });
-    if ((workspace.current?.getBoundingClientRect().top ?? 0) < 0) workspace.current?.scrollIntoView({ block: 'start' });
+    const bounds = heading.current?.getBoundingClientRect();
+    if (bounds && (bounds.top < 0 || bounds.bottom > window.innerHeight)) workspace.current?.scrollIntoView({ block: 'start' });
   }, [focusTick]);
   useEffect(() => {
     const before = seen.current;
@@ -224,7 +225,13 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
     const previous = room.stories[target]?.score ?? saved?.score ?? null;
     if (await act({ type: 'undoFinalize' })) { setSaved(null); setUndone(target); setPreset(previous); setFocusTick(tick => tick + 1); }
   }
-  async function reset() { if (await act({ type: 'reset' })) { setConfirmReset(false); setPreset(null); } }
+  async function reset() {
+    if (await act({ type: 'reset' })) {
+      setConfirmReset(false); setPreset(null);
+      const active = document.activeElement;
+      if (!active || active === document.body || workspace.current?.contains(active)) setFocusTick(tick => tick + 1);
+    }
+  }
 
   const undoLast = canUndo && !saved && <button className="button subtle" type="button" disabled={locked} onClick={() => void undo()}><Undo2 size={14} />Undo last save</button>;
   const closeReset = () => { returnFocus.current = 'reset'; setConfirmReset(false); };
@@ -232,9 +239,9 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
 
   return <main>
     <div className="sr-only" role="status" aria-live="polite">{announcement}</div>
-    <div className="room-top"><div><h1>{room.title}</h1><div className="room-meta"><span className={`connection ${connection !== 'live' ? 'disconnected' : ''}`}>{connection === 'live' ? (done ? 'Complete' : 'Live session') : connection === 'connecting' ? 'Connecting' : 'Reconnecting'}</span><span className="identity">{self?.name ?? 'You'} · {room.self.facilitator ? 'Facilitator' : 'Participant'}</span></div></div><div className="room-actions"><button className="button" onClick={exportScores} aria-label="Export estimates as CSV"><Download size={15} />Export</button><button className={`button ${!done && total === 1 ? 'primary' : ''}`} onClick={copyInvite}><Copy size={15} />{clipboard === 'copied' ? 'Link copied' : 'Invite team'}</button></div></div>
-    {clipboard === 'copied' && <div className="notice">Invite link copied. Share it with your team so they can join.</div>}
-    {clipboard === 'failed' && <div className="notice">Clipboard access is unavailable. Copy this invite link instead: <a href={`/rooms/${room.id}`}>{window.location.origin}/rooms/{room.id}</a></div>}
+    <div className="room-top"><div><h1>{room.title}</h1><div className="room-meta"><span className={`connection ${connection !== 'live' ? 'disconnected' : ''}`}>{connection === 'live' ? (done ? 'Complete' : 'Live session') : connection === 'connecting' ? 'Connecting' : 'Reconnecting'}</span><span className="identity">{self?.name ?? 'You'} · {room.self.facilitator ? 'Facilitator' : 'Participant'}</span></div></div><div className="room-actions"><button className="button" onClick={exportScores} aria-label="Export estimates as CSV"><Download size={15} />Export</button>{!done && <button className={`button ${total === 1 ? 'primary' : ''}`} onClick={copyInvite}><Copy size={15} />{clipboard === 'copied' ? 'Link copied' : 'Invite team'}</button>}</div></div>
+    {!done && clipboard === 'copied' && <div className="notice">Invite link copied. Share it with your team so they can join.</div>}
+    {!done && clipboard === 'failed' && <div className="notice">Clipboard access is unavailable. Copy this invite link instead: <a href={`/rooms/${room.id}`}>{window.location.origin}/rooms/{room.id}</a></div>}
     {connection !== 'live' && <div className="notice">Live updates are interrupted. We’re checking for changes while we reconnect. Voting and facilitator controls will return when connected.<button className="button subtle" onClick={retry}>Reconnect now</button></div>}
     {error && <div className="error" role="alert">{error}</div>}
     {exportError && <div className="error" role="alert">{exportError}</div>}
@@ -242,7 +249,7 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
       <aside className={`paper agenda ${done ? 'complete' : ''}`} aria-label="Story progress"><div className="rail-title"><h2>The story list</h2><span className="count">{completedCount}/{room.stories.length}</span></div><div className="progress-track" role="progressbar" aria-label="Stories completed" aria-valuenow={completedCount} aria-valuemin={0} aria-valuemax={room.stories.length}><span style={{ width: `${completedCount / room.stories.length * 100}%` }} /></div>{!done && <ol className="story-list">{room.stories.map((story, index) => <li className={`story-item ${index === room.currentStory ? 'active' : ''}`} key={story.id} aria-current={index === room.currentStory ? 'step' : undefined}><span className="story-number">{story.score !== null ? <Check size={13} aria-label="Agreed" /> : String(index + 1).padStart(2, '0')}</span><span className="story-name" title={story.title}>{story.title}</span>{story.score !== null && <span className="story-score" aria-label={`Agreed estimate ${story.score}`}>{story.score}</span>}</li>)}</ol>}</aside>
       <section className="workspace" ref={workspace} aria-label="Estimation workspace">
         {room.self.facilitator && saved && !done && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} />}
-        <div className="paper round-paper">
+        <div className={`paper round-paper ${revealed ? 'revealed' : ''}`}>
           {done ? <>{room.self.facilitator && saved && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} inCard />}<div className="round-body completed-summary"><span className="complete-mark"><CheckCheck size={27} strokeWidth={1.5} /></span><h2 ref={heading} tabIndex={-1}>That’s a shared understanding.</h2><p className="muted">Every story has an agreed estimate. Your session is complete.</p><button className="button primary" onClick={exportScores}><Download size={16} />Export agreed estimates</button>{undoLast}<div className="completion-list">{room.stories.map(story => <div className="completion-row" key={story.id}><span>{story.title}</span><strong>{story.score}</strong></div>)}</div></div></> : <>
             <div className="round-top"><div className="round-phase"><div className="phase-story"><span>Story {room.currentStory + 1} of {room.stories.length}</span>{titleOverflows && <button className="button subtle title-toggle" type="button" aria-expanded={titleExpanded} aria-controls="story-title" onClick={() => setTitleExpanded(!titleExpanded)}>{titleExpanded ? 'Show less' : 'Show full story'}</button>}</div><span className="phase-tag">{revealed ? <><Eye size={13} />Estimates revealed</> : <><Circle size={10} fill="currentColor" />Voting open</>}</span></div><h2 className={`round-title ${titleOverflows && !titleExpanded ? 'clamped' : ''}`} id="story-title" ref={heading} tabIndex={-1}>{currentStory?.title}</h2></div>
             <div className="round-body">
