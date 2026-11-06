@@ -32,7 +32,8 @@ describe('Room voting', () => {
     const user = userEvent.setup();
     const { act } = view(snapshot({ self: { id: 'host', facilitator: true, vote: '3' } }));
     expect(screen.getByRole('radio', { name: 'Estimate 3' })).toBeChecked();
-    expect(screen.getByText('Your estimate is 3. Only you can see it.')).toBeVisible();
+    expect(screen.getByText('Your estimate is 3')).toBeVisible();
+    expect(screen.getByText(/Only you can see it/)).toBeVisible();
     await user.click(screen.getByRole('radio', { name: 'Estimate 8' }));
     expect(act).toHaveBeenCalledWith({ type: 'vote', estimate: '8' });
   });
@@ -110,9 +111,50 @@ describe('Estimate deck keyboard', () => {
     expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '?' });
   });
 
+  it('buffers digits so 13 and 21 resolve to one vote each', async () => {
+    const user = userEvent.setup();
+    const { act } = view();
+    screen.getByRole('radio', { name: 'Estimate 0' }).focus();
+    await user.keyboard('13');
+    expect(act).toHaveBeenCalledTimes(1);
+    expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '13' });
+    await user.keyboard('21');
+    expect(act).toHaveBeenCalledTimes(2);
+    expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '21' });
+    await user.keyboard('3');
+    expect(act).toHaveBeenCalledTimes(3);
+    expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '3' });
+  });
+
+  it('waits briefly after 1 or 2 and then votes the single digit', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const { act } = view();
+      screen.getByRole('radio', { name: 'Estimate 0' }).focus();
+      await user.keyboard('1');
+      expect(act).not.toHaveBeenCalled();
+      await act_advance(700);
+      expect(act).toHaveBeenCalledTimes(1);
+      expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '1' });
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('picks ½ with h or / and sends one command', async () => {
+    const user = userEvent.setup();
+    const { act } = view();
+    screen.getByRole('radio', { name: 'Estimate 0' }).focus();
+    await user.keyboard('h');
+    expect(act).toHaveBeenCalledTimes(1);
+    expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '½' });
+    await user.keyboard('/');
+    expect(act).toHaveBeenCalledTimes(2);
+    expect(act).toHaveBeenLastCalledWith({ type: 'vote', estimate: '½' });
+  });
+
   it('keeps one polite live region for announcements', () => {
     view();
-    expect(screen.getAllByRole('status')).toHaveLength(2);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
   });
 });
 
@@ -171,11 +213,11 @@ describe('Discussion and completion', () => {
     await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
     expect(act).toHaveBeenCalledWith({ type: 'finalize', score: '8' });
     rerender(<RoomView {...props} act={act} room={snapshot({ currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }, { id: 'second', title: 'Add saved filters', score: null }] })} />);
-    const status = screen.getByText('Saved 8 for Improve search relevance');
-    expect(status).toHaveAttribute('role', 'status');
-    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByText('Saved 8 for Improve search relevance')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Saved 8 for Improve search relevance.');
+    await user.click(screen.getByRole('button', { name: 'Undo saving 8 for Improve search relevance' }));
     expect(act).toHaveBeenLastCalledWith({ type: 'undoFinalize' });
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Undo saving/ })).not.toBeInTheDocument();
   });
 
   it('drops the undo offer once the next round has a vote', async () => {
@@ -185,10 +227,10 @@ describe('Discussion and completion', () => {
     await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
     const next = snapshot({ currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }, { id: 'second', title: 'Add saved filters', score: null }] });
     rerender(<RoomView {...props} act={act} room={next} />);
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Undo saving/ })).toBeVisible();
     next.participants[1].hasVoted = true;
     rerender(<RoomView {...props} act={act} room={{ ...next, revision: 3 }} />);
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Undo saving/ })).not.toBeInTheDocument();
   });
 
   it('expires the undo offer after about ten seconds', async () => {
@@ -199,15 +241,15 @@ describe('Discussion and completion', () => {
       await user.click(screen.getByRole('radio', { name: '8' }));
       await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
       rerender(<RoomView {...props} act={act} room={snapshot({ currentStory: 1, revision: 2 })} />);
-      expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible();
+      expect(screen.getByRole('button', { name: /^Undo saving/ })).toBeVisible();
       await act_advance(10100);
-      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Undo saving/ })).not.toBeInTheDocument();
     } finally { vi.useRealTimers(); }
   });
 
   it('never offers undo to a participant', () => {
     view(snapshot({ phase: 'revealed', self: { id: 'guest', facilitator: false, vote: null } }));
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Undo saving/ })).not.toBeInTheDocument();
   });
 
   it('requires confirmation to reset the round', async () => {
@@ -223,6 +265,133 @@ describe('Discussion and completion', () => {
     view(revealed(), { error: 'The round changed. Review and try again.' });
     expect(screen.getByRole('alert')).toHaveTextContent('The round changed');
     expect(screen.getByRole('group', { name: 'Agreed estimate' })).toBeVisible();
+  });
+
+  it('tells participants when the facilitator restarted the round, until they vote', () => {
+    const guest = { id: 'guest', facilitator: false, vote: null as null | '5' };
+    const { rerender, ...props } = view(snapshot({ phase: 'revealed', self: guest }));
+    expect(screen.queryByText(/restarted this round/)).not.toBeInTheDocument();
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', revision: 2, self: guest })} />);
+    expect(screen.getAllByText('The facilitator restarted this round. Vote again.')).toHaveLength(2);
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', revision: 3, self: { ...guest, vote: '5' } })} />);
+    expect(screen.queryByText(/restarted this round/)).not.toBeInTheDocument();
+  });
+
+  it('does not call a finalize or advance a restart', () => {
+    const guest = { id: 'guest', facilitator: false, vote: null };
+    const { rerender, ...props } = view(snapshot({ phase: 'revealed', self: guest }));
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', currentStory: 1, revision: 2, self: guest })} />);
+    expect(screen.queryByText(/restarted this round/)).not.toBeInTheDocument();
+  });
+
+  it('moves focus to the revealed heading when Reveal confirms', async () => {
+    const user = userEvent.setup();
+    const everyone = snapshot({ participants: [
+      { id: 'host', name: 'Robin', facilitator: true, online: true, hasVoted: true },
+      { id: 'guest', name: 'Sam', facilitator: false, online: true, hasVoted: true },
+    ] });
+    const { rerender, ...props } = view(everyone);
+    await user.click(screen.getByRole('button', { name: /Reveal estimates/ }));
+    rerender(<RoomView {...props} room={snapshot({ phase: 'revealed', revision: 2, participants: everyone.participants.map(person => ({ ...person, estimate: '3' as const })) })} />);
+    expect(screen.getByRole('heading', { name: 'The cards are on the table.' })).toHaveFocus();
+  });
+
+  it('moves a participant’s focus to the reveal heading from the deck, but not from elsewhere', () => {
+    const guest = { id: 'guest', facilitator: false, vote: '5' as const };
+    const { rerender, ...props } = view(snapshot({ self: guest }));
+    screen.getByRole('radio', { name: 'Estimate 5' }).focus();
+    const open = snapshot({ phase: 'revealed', revision: 2, self: guest });
+    rerender(<RoomView {...props} room={open} />);
+    expect(screen.getByRole('heading', { name: 'The cards are on the table.' })).toHaveFocus();
+    cleanup();
+    const second = view(snapshot({ self: guest }));
+    screen.getByRole('button', { name: 'Invite team' }).focus();
+    second.rerender(<RoomView {...second} room={open} />);
+    expect(screen.getByRole('button', { name: 'Invite team' })).toHaveFocus();
+  });
+
+  it('shows the saved banner and Undo at the top of the completed card', async () => {
+    const user = userEvent.setup();
+    const one = { stories: [{ id: 'first', title: 'Improve search relevance', score: null }] };
+    const { act, rerender, ...props } = view(snapshot({ phase: 'revealed', ...one, participants: [{ id: 'host', name: 'Robin', facilitator: true, online: true, hasVoted: true, estimate: '8' }], self: { id: 'host', facilitator: true, vote: '8' } }));
+    await user.click(screen.getByRole('radio', { name: '8' }));
+    await user.click(screen.getByRole('button', { name: 'Save estimate & finish' }));
+    rerender(<RoomView {...props} act={act} room={snapshot({ phase: 'completed', currentStory: 1, revision: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '8' }] })} />);
+    const summary = screen.getByRole('heading', { name: 'That’s a shared understanding.' });
+    const banner = screen.getByText('Saved 8 for Improve search relevance');
+    expect(banner).toBeVisible();
+    expect(banner.closest('.round-paper')).not.toBeNull();
+    expect(banner.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /^Undo saving 8 for Improve search relevance$/ })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: /^Undo saving/ }));
+    expect(act).toHaveBeenLastCalledWith({ type: 'undoFinalize' });
+    expect(document.querySelector('.saved-note')).toBeNull();
+  });
+
+  it('focuses the story heading on mount and after a reset or story change from the body', () => {
+    const guest = { id: 'guest', facilitator: false, vote: null };
+    const { rerender, ...props } = view(snapshot({ self: guest }));
+    expect(screen.getByRole('heading', { name: 'Improve search relevance' })).toHaveFocus();
+    (document.activeElement as HTMLElement).blur();
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', revision: 2, self: guest })} />);
+    expect(screen.getByRole('heading', { name: 'Improve search relevance' })).toHaveFocus();
+    (document.activeElement as HTMLElement).blur();
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-three', currentStory: 1, revision: 3, self: guest })} />);
+    expect(screen.getByRole('heading', { name: 'Add saved filters' })).toHaveFocus();
+  });
+
+  it('leaves focus on controls outside the workspace and on the deck card during a story change', () => {
+    const guest = { id: 'guest', facilitator: false, vote: null };
+    const { rerender, ...props } = view(snapshot({ self: guest }));
+    screen.getByRole('button', { name: 'Invite team' }).focus();
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-two', currentStory: 1, revision: 2, self: guest })} />);
+    expect(screen.getByRole('button', { name: 'Invite team' })).toHaveFocus();
+    screen.getByRole('radio', { name: 'Estimate 5' }).focus();
+    rerender(<RoomView {...props} room={snapshot({ roundId: 'round-three', revision: 3, self: guest })} />);
+    expect(screen.getByRole('radio', { name: 'Estimate 5' })).toHaveFocus();
+  });
+
+  it('puts the facilitator’s primary action in a bar and trims redundant notes', () => {
+    view();
+    const reveal = screen.getByRole('button', { name: /Reveal estimates/ });
+    expect(reveal.closest('.action-bar')).not.toBeNull();
+    expect(screen.queryByText(/Give everyone a moment/)).not.toBeInTheDocument();
+    expect(screen.getByText('Private until the reveal. Pick your card.')).toBeVisible();
+    cleanup();
+    view(snapshot({ phase: 'revealed', self: { id: 'host', facilitator: true, vote: null } }));
+    expect(screen.getByRole('button', { name: 'Save estimate & next story' }).closest('.action-bar')).not.toBeNull();
+    cleanup();
+    view(snapshot({ self: { id: 'guest', facilitator: false, vote: null } }));
+    expect(document.querySelector('.action-bar')).toBeNull();
+  });
+
+  it('presents keyboard shortcuts as key caps', () => {
+    view();
+    const legend = document.getElementById('deck-legend')!;
+    expect([...legend.querySelectorAll('kbd')].map(key => key.textContent)).toEqual(['←', '→', 'Space', '1', '21', 'H']);
+    expect(legend).toHaveTextContent('half a point');
+  });
+
+  it('explains the disabled save button until a score is chosen', async () => {
+    const user = userEvent.setup();
+    view(snapshot({ phase: 'revealed', self: { id: 'host', facilitator: true, vote: null } }));
+    const save = screen.getByRole('button', { name: 'Save estimate & next story' });
+    expect(save).toHaveAccessibleDescription('Choose an agreed estimate first');
+    await user.click(screen.getByRole('radio', { name: '5' }));
+    expect(save).not.toHaveAccessibleDescription('Choose an agreed estimate first');
+    expect(screen.queryByText('Choose an agreed estimate first')).not.toBeInTheDocument();
+  });
+
+  it('keeps Invite primary only while the facilitator is alone, and secondary when complete', () => {
+    const done = { phase: 'completed' as const, currentStory: 2, stories: [{ id: 'first', title: 'Improve search relevance', score: '5' as const }, { id: 'second', title: 'Add saved filters', score: '3' as const }] };
+    view(snapshot(done));
+    expect(screen.getByText('Complete')).toBeVisible();
+    expect(screen.queryByText('Live session')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Invite team' })).not.toHaveClass('primary');
+    cleanup(); view();
+    expect(screen.getByRole('button', { name: 'Invite team' })).not.toHaveClass('primary');
+    cleanup(); view(snapshot({ participants: [{ id: 'host', name: 'Robin', facilitator: true, online: true, hasVoted: false }] }));
+    expect(screen.getByRole('button', { name: 'Invite team' })).toHaveClass('primary');
   });
 
   it('replaces the voting controls with agreed results when complete', () => {

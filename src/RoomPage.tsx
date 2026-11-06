@@ -23,20 +23,45 @@ function spreadNote(participants: PublicParticipant[]) {
   return Math.max(...ranks) - Math.min(...ranks) >= 2 ? `Votes run from ${low} to ${high}. Talk through the gap before you settle.` : '';
 }
 
+const DIGIT_WAIT = 600;
+
 function Deck({ vote, offline, busy, onVote }: { vote: Estimate | null; offline: boolean; busy: boolean; onVote: (value: Estimate) => void }) {
   const cards = useRef<(HTMLButtonElement | null)[]>([]);
+  const buffer = useRef({ keys: '', timer: undefined as ReturnType<typeof setTimeout> | undefined });
+  const latest = useRef({ offline, busy, onVote });
+  latest.current = { offline, busy, onVote };
   const [tabStop, setTabStop] = useState(() => Math.max(0, vote ? DECK.indexOf(vote) : 0));
   useEffect(() => { if (vote) setTabStop(DECK.indexOf(vote)); }, [vote]);
+  useEffect(() => () => clearTimeout(buffer.current.timer), []);
   function focusCard(index: number) { setTabStop(index); cards.current[index]?.focus(); }
+  function clearBuffer() { clearTimeout(buffer.current.timer); buffer.current = { keys: '', timer: undefined }; }
+  function pick(value: Estimate) {
+    const index = DECK.indexOf(value);
+    if (latest.current.offline) return;
+    focusCard(index);
+    if (!latest.current.busy) latest.current.onVote(value);
+  }
+  function flush() { const keys = buffer.current.keys; clearBuffer(); if (keys) pick(keys as Estimate); }
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const index = cards.current.findIndex(card => card === document.activeElement);
     const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
-    if (step && index >= 0) { event.preventDefault(); focusCard((index + step + DECK.length) % DECK.length); return; }
-    if (event.key === 'Home') { event.preventDefault(); focusCard(0); return; }
-    if (event.key === 'End') { event.preventDefault(); focusCard(DECK.length - 1); return; }
-    const match = DECK.findIndex(value => value === event.key);
-    if (match >= 0 && !offline) { event.preventDefault(); focusCard(match); if (!busy) onVote(DECK[match]); }
+    if (step && index >= 0) { event.preventDefault(); clearBuffer(); focusCard((index + step + DECK.length) % DECK.length); return; }
+    if (event.key === 'Home') { event.preventDefault(); clearBuffer(); focusCard(0); return; }
+    if (event.key === 'End') { event.preventDefault(); clearBuffer(); focusCard(DECK.length - 1); return; }
+    const key = event.key === 'h' || event.key === 'H' || event.key === '/' ? '½' : event.key;
+    if (!DECK.some(value => value === key) && !/^\d$/.test(key)) return;
+    event.preventDefault();
+    if (event.repeat) return;
+    const pending = buffer.current.keys;
+    if (pending && DECK.some(value => value === pending + key)) { clearBuffer(); pick((pending + key) as Estimate); return; }
+    flush();
+    if (key === '1' || key === '2') {
+      buffer.current.keys = key;
+      buffer.current.timer = setTimeout(flush, DIGIT_WAIT);
+      return;
+    }
+    if (DECK.some(value => value === key)) pick(key as Estimate);
   }
   return <div className="estimate-grid" role="radiogroup" aria-label="Choose your estimate" aria-describedby="deck-legend" onKeyDown={onKeyDown}>{DECK.map((value, index) => <button className="estimate-card" key={value} ref={node => { cards.current[index] = node; }} type="button" role="radio" aria-label={value === '?' ? 'Estimate unsure' : `Estimate ${value}`} aria-checked={vote === value} aria-disabled={busy || undefined} tabIndex={index === tabStop ? 0 : -1} disabled={offline} onFocus={() => setTabStop(index)} onClick={() => { if (!busy) onVote(value); }}><span className="estimate-value">{value}</span>{vote === value ? <Check size={12} aria-hidden="true" /> : <span aria-hidden="true" style={{ height: 12 }} />}</button>)}</div>;
 }
@@ -53,8 +78,13 @@ function FinalizeForm({ participants, busy, locked, last, onSave }: { participan
       <div className="score-choices">{voted.map(choice)}{rest.length > 0 && voted.length > 0 && <button className="score-other" type="button" aria-expanded={other} aria-controls="other-scores" onClick={() => setOther(!other)}>Other</button>}</div>
       {other && rest.length > 0 && <div className="score-choices" id="other-scores" role="group" aria-label="Other values">{rest.map(choice)}</div>}
       <small>Choose a score after discussion. This records the estimate for everyone.</small></fieldset>
-    <button className="button primary" disabled={locked || !score}>{busy ? 'Saving…' : last ? 'Save estimate & finish' : 'Save estimate & next story'}<ArrowRight size={15} /></button>
+    <div className="action-bar"><button className="button primary" disabled={locked || !score} aria-describedby={score ? undefined : 'score-hint'}>{busy ? 'Saving…' : last ? 'Save estimate & finish' : 'Save estimate & next story'}<ArrowRight size={15} /></button>
+    {!score && <p className="score-hint" id="score-hint">Choose an agreed estimate first</p>}</div>
   </form>;
+}
+
+function SavedBanner({ saved, disabled, onUndo, inCard }: { saved: { score: Score; title: string }; disabled: boolean; onUndo: () => void; inCard?: boolean }) {
+  return <div className={`saved-note ${inCard ? 'in-card' : ''}`}><span className="saved-text" title={saved.title}>Saved {saved.score} for {truncate(saved.title)}</span><button className="button subtle" type="button" disabled={disabled} aria-label={`Undo saving ${saved.score} for ${truncate(saved.title)}`} onClick={onUndo}>Undo</button><span className="saved-timer" aria-hidden="true" /></div>;
 }
 
 function Status({ person, done, revealed }: { person: PublicParticipant; done: boolean; revealed: boolean }) {
@@ -62,6 +92,8 @@ function Status({ person, done, revealed }: { person: PublicParticipant; done: b
   if (revealed) return person.estimate ? <><span className="sr-only">Estimate </span>{person.estimate}</> : <><span aria-hidden="true">—</span><span className="sr-only">Did not vote</span></>;
   return person.hasVoted ? <><Check size={16} aria-hidden="true" /><span className="sr-only">Voted</span></> : <><Circle size={12} aria-hidden="true" /><span className="sr-only">Not voted yet</span></>;
 }
+
+const RESTART_MESSAGE = 'The facilitator restarted this round. Vote again.';
 
 export function RoomView({ room, connection, busy, error, act, retry }: RoomViewProps) {
   const [clipboard, setClipboard] = useState<'idle' | 'copied' | 'failed'>('idle');
@@ -71,7 +103,12 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   const [saved, setSaved] = useState<{ score: Score; title: string; story: number } | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const [focusTick, setFocusTick] = useState(0);
+  const [restarted, setRestarted] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const revealHeading = useRef<HTMLHeadingElement>(null);
+  const workspace = useRef<HTMLElement>(null);
+  const seen = useRef({ roundId: room.roundId, story: room.currentStory, phase: room.phase });
+  const previousRound = useRef({ roundId: room.roundId, story: room.currentStory, phase: room.phase });
   const previousConnection = useRef(connection);
   const self = room.participants.find(person => person.id === room.self.id);
   const done = room.phase === 'completed';
@@ -90,7 +127,35 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   useEffect(() => { if (clipboard === 'idle') return; const timeout = setTimeout(() => setClipboard('idle'), 5000); return () => clearTimeout(timeout); }, [clipboard]);
   useEffect(() => { if (!saved) return; const timeout = setTimeout(() => setSaved(null), 10000); return () => clearTimeout(timeout); }, [saved]);
   useEffect(() => { if (saved && room.currentStory > saved.story && roundStarted) setSaved(null); }, [saved, room.currentStory, roundStarted]);
-  useEffect(() => { if (focusTick > 0) heading.current?.focus({ preventScroll: true }); }, [focusTick]);
+  useEffect(() => {
+    if (focusTick === 0) return;
+    heading.current?.focus({ preventScroll: true });
+    if ((workspace.current?.getBoundingClientRect().top ?? 0) < 0) workspace.current?.scrollIntoView({ block: 'start' });
+  }, [focusTick]);
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = { roundId: room.roundId, story: room.currentStory, phase: room.phase };
+    const sameRound = before.roundId === room.roundId && before.story === room.currentStory;
+    const toRevealed = before.phase !== 'revealed' && room.phase === 'revealed';
+    if (sameRound && !toRevealed) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !workspace.current?.contains(active)) return;
+    if (sameRound) revealHeading.current?.focus({ preventScroll: true });
+    else if (!active?.classList.contains('estimate-card')) heading.current?.focus({ preventScroll: true });
+  }, [room.roundId, room.currentStory, room.phase]);
+  useEffect(() => {
+    if (window.scrollY > 0) window.scrollTo(0, 0);
+    if (!document.activeElement || document.activeElement === document.body) heading.current?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
+    const before = previousRound.current;
+    previousRound.current = { roundId: room.roundId, story: room.currentStory, phase: room.phase };
+    if (before.roundId !== room.roundId) {
+      const reset = !room.self.facilitator && room.phase === 'voting' && room.currentStory === before.story && before.phase !== 'completed';
+      setRestarted(reset);
+      if (reset) setAnnouncement(RESTART_MESSAGE);
+    } else if (room.self.vote !== null || room.currentStory !== before.story) setRestarted(false);
+  }, [room.roundId, room.currentStory, room.phase, room.self.facilitator, room.self.vote]);
   useEffect(() => {
     if (previousConnection.current === connection) return;
     setAnnouncement(connection === 'live' ? 'Live updates resumed.' : previousConnection.current === 'live' ? 'Live updates interrupted. Reconnecting.' : '');
@@ -109,32 +174,32 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   }
   async function finalize(score: Score) {
     const title = currentStory?.title ?? '';
-    if (await act({ type: 'finalize', score })) { setSaved({ score, title, story: room.currentStory }); setFocusTick(tick => tick + 1); }
+    if (await act({ type: 'finalize', score })) { setSaved({ score, title, story: room.currentStory }); setAnnouncement(`Saved ${score} for ${truncate(title)}.`); setFocusTick(tick => tick + 1); }
   }
   async function undo() { if (await act({ type: 'undoFinalize' })) { setSaved(null); setFocusTick(tick => tick + 1); } }
   async function reset() { if (await act({ type: 'reset' })) setConfirmReset(false); }
 
   return <main>
     <div className="sr-only" role="status" aria-live="polite">{announcement}</div>
-    <div className="room-top"><div><h1>{room.title}</h1><div className="room-meta"><span className={`connection ${connection !== 'live' ? 'disconnected' : ''}`}>{connection === 'live' ? 'Live session' : connection === 'connecting' ? 'Connecting' : 'Reconnecting'}</span><span className="identity">{self?.name ?? 'You'} · {room.self.facilitator ? 'Facilitator' : 'Participant'}</span></div></div><div className="room-actions"><button className="button" onClick={exportScores} aria-label="Export estimates as CSV"><Download size={15} />Export</button><button className="button primary" onClick={copyInvite}><Copy size={15} />{clipboard === 'copied' ? 'Link copied' : 'Invite team'}</button></div></div>
+    <div className="room-top"><div><h1>{room.title}</h1><div className="room-meta"><span className={`connection ${connection !== 'live' ? 'disconnected' : ''}`}>{connection === 'live' ? (done ? 'Complete' : 'Live session') : connection === 'connecting' ? 'Connecting' : 'Reconnecting'}</span><span className="identity">{self?.name ?? 'You'} · {room.self.facilitator ? 'Facilitator' : 'Participant'}</span></div></div><div className="room-actions"><button className="button" onClick={exportScores} aria-label="Export estimates as CSV"><Download size={15} />Export</button><button className={`button ${!done && total === 1 ? 'primary' : ''}`} onClick={copyInvite}><Copy size={15} />{clipboard === 'copied' ? 'Link copied' : 'Invite team'}</button></div></div>
     {clipboard === 'copied' && <div className="notice">Invite link copied. Share it with your team so they can join.</div>}
     {clipboard === 'failed' && <div className="notice">Clipboard access is unavailable. Copy this invite link instead: <a href={`/rooms/${room.id}`}>{window.location.origin}/rooms/{room.id}</a></div>}
     {connection !== 'live' && <div className="notice">Live updates are interrupted. We’re checking for changes while we reconnect. Voting and facilitator controls will return when connected.<button className="button subtle" onClick={retry}>Reconnect now</button></div>}
     {error && <div className="error" role="alert">{error}</div>}
     {exportError && <div className="error" role="alert">{exportError}</div>}
-    <div className="room-layout">
+    <div className={`room-layout ${done ? 'complete' : ''}`}>
       <aside className={`paper agenda ${done ? 'complete' : ''}`} aria-label="Story progress"><div className="rail-title"><h2>The story list</h2><span className="count">{completedCount}/{room.stories.length}</span></div><div className="progress-track" role="progressbar" aria-label="Stories completed" aria-valuenow={completedCount} aria-valuemin={0} aria-valuemax={room.stories.length}><span style={{ width: `${completedCount / room.stories.length * 100}%` }} /></div>{!done && <ol className="story-list">{room.stories.map((story, index) => <li className={`story-item ${index === room.currentStory ? 'active' : ''}`} key={story.id} aria-current={index === room.currentStory ? 'step' : undefined}><span className="story-number">{story.score !== null ? <Check size={13} aria-label="Agreed" /> : String(index + 1).padStart(2, '0')}</span><span className="story-name" title={story.title}>{story.title}</span>{story.score !== null && <span className="story-score" aria-label={`Agreed estimate ${story.score}`}>{story.score}</span>}</li>)}</ol>}</aside>
-      <section className="workspace" aria-label="Estimation workspace">
-        {room.self.facilitator && <div className={`saved-note ${saved ? 'has-saved' : ''}`}><span className="saved-text" role="status" title={saved?.title}>{saved ? `Saved ${saved.score} for ${truncate(saved.title)}` : ''}</span>{saved && <button className="button subtle" type="button" disabled={connection !== 'live'} onClick={undo}>Undo</button>}</div>}
+      <section className="workspace" ref={workspace} aria-label="Estimation workspace">
+        {room.self.facilitator && saved && !done && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} />}
         <div className="paper round-paper">
-          {done ? <div className="round-body completed-summary"><span className="complete-mark"><CheckCheck size={27} strokeWidth={1.5} /></span><h2 ref={heading} tabIndex={-1}>That’s a shared understanding.</h2><p className="muted">Every story has an agreed estimate. Your session is complete.</p><button className="button primary" onClick={exportScores}><Download size={16} />Export agreed estimates</button><div className="completion-list">{room.stories.map(story => <div className="completion-row" key={story.id}><span>{story.title}</span><strong>{story.score}</strong></div>)}</div></div> : <>
+          {done ? <>{room.self.facilitator && saved && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} inCard />}<div className="round-body completed-summary"><span className="complete-mark"><CheckCheck size={27} strokeWidth={1.5} /></span><h2 ref={heading} tabIndex={-1}>That’s a shared understanding.</h2><p className="muted">Every story has an agreed estimate. Your session is complete.</p><button className="button primary" onClick={exportScores}><Download size={16} />Export agreed estimates</button><div className="completion-list">{room.stories.map(story => <div className="completion-row" key={story.id}><span>{story.title}</span><strong>{story.score}</strong></div>)}</div></div></> : <>
             <div className="round-top"><div className="round-phase"><span>Story {room.currentStory + 1} of {room.stories.length}</span><span className="phase-tag">{revealed ? <><Eye size={13} />Estimates revealed</> : <><Circle size={10} fill="currentColor" />Voting open</>}</span></div><h2 className="round-title" ref={heading} tabIndex={-1}>{currentStory?.title}</h2></div>
             <div className="round-body">
-              {revealed ? <><h3>The cards are on the table.</h3><p className="muted" style={{ marginTop: 9 }}>Compare perspectives before settling on an estimate.</p>{distribution.length ? <div className="distribution" role="img" aria-label={`Revealed estimates: ${distribution.map(item => `${item.value}: ${item.count} ${item.count === 1 ? 'vote' : 'votes'}`).join(', ')}`}>{distribution.map((item, index) => <div className="distribution-row" key={item.value}><strong>{item.value}</strong><div className="distribution-bar"><span style={{ width: `${item.count / Math.max(1, votes) * 100}%`, animationDelay: `${index * 90}ms` }} /></div><small>{item.count} {item.count === 1 ? 'vote' : 'votes'}</small></div>)}</div> : <p className="notice">No votes were submitted before the reveal.</p>}
+              {revealed ? <><h3 className="reveal-heading" ref={revealHeading} tabIndex={-1}>The cards are on the table.</h3><p className="muted" style={{ marginTop: 9 }}>Compare perspectives before settling on an estimate.</p>{distribution.length ? <div className="distribution" role="img" aria-label={`Revealed estimates: ${distribution.map(item => `${item.value}: ${item.count} ${item.count === 1 ? 'vote' : 'votes'}`).join(', ')}`}>{distribution.map((item, index) => <div className="distribution-row" key={item.value}><strong>{item.value}</strong><div className="distribution-bar"><span style={{ width: `${item.count / Math.max(1, votes) * 100}%`, animationDelay: `${index * 90}ms` }} /></div><small>{item.count} {item.count === 1 ? 'vote' : 'votes'}</small></div>)}</div> : <p className="notice">No votes were submitted before the reveal.</p>}
                 {spread && <p className="spread-note">{spread}</p>}
                 {room.self.facilitator ? <FinalizeForm key={room.roundId} participants={room.participants} busy={busy} locked={locked} last={room.currentStory === room.stories.length - 1} onSave={score => void finalize(score)} /> : <p className="vote-note"><UsersRound size={14} />Your facilitator will record the agreed estimate.</p>}
-              </> : <><div className="vote-label"><strong>Your estimate</strong><span>{room.self.vote !== null ? 'You can change it before reveal.' : 'Think it through. Pick your card.'}</span></div><Deck vote={room.self.vote} offline={connection !== 'live'} busy={busy} onVote={value => void act({ type: 'vote', estimate: value })} /><p className="deck-legend" id="deck-legend"><strong>?</strong> unsure or needs discussion · <strong>½</strong> half a point · arrow keys move, Space picks, number keys pick directly</p><p className={`vote-note ${room.self.vote !== null ? 'selected' : ''}`}>{room.self.vote !== null ? <><Check size={14} />Your estimate is {room.self.vote}. Only you can see it.</> : <><LockKeyhole size={13} />Your estimate stays private until the reveal.</>}</p></>}
-              {room.self.facilitator && <div className="facilitator-controls">{!revealed && <><button className="button primary full" type="button" disabled={locked || confirmReveal} onClick={reveal}><Eye size={16} /><span>Reveal <span className="wide-only">estimates</span>{votes !== total && ` · ${votes}/${total} voted`}</span></button><p>{votes === total ? 'Everyone has voted. Time to compare perspectives.' : 'Give everyone a moment, or reveal early when the team is ready.'}</p>{confirmReveal && <div className="notice reveal-confirm"><p>{missingVotes} {missingVotes === 1 ? 'person hasn’t' : 'people haven’t'} voted yet. Reveal without {missingVotes === 1 ? 'their estimate' : 'their estimates'}?</p><div className="actions-row"><button className="button primary" disabled={locked} onClick={reveal}>Reveal now</button><button className="button" onClick={() => setConfirmReveal(false)}>Keep voting</button></div></div>}</>}
+              </> : <>{restarted && <p className="notice restart-notice">{RESTART_MESSAGE}</p>}<div className="vote-label"><strong>{room.self.vote !== null ? `Your estimate is ${room.self.vote}` : 'Your estimate'}</strong><span>{room.self.vote !== null ? 'Only you can see it. You can change it before reveal.' : 'Private until the reveal. Pick your card.'}</span></div><Deck vote={room.self.vote} offline={connection !== 'live'} busy={busy} onVote={value => void act({ type: 'vote', estimate: value })} /><div className="deck-legend" id="deck-legend"><p><strong>?</strong> unsure or needs discussion · <strong>½</strong> half a point</p><p className="legend-keys"><span><kbd>←</kbd><kbd>→</kbd> move</span><span><kbd>Space</kbd> pick</span><span><span><kbd>1</kbd>–<kbd>21</kbd></span> type the number</span><span><kbd>H</kbd> ½</span></p></div></>}
+              {room.self.facilitator && <div className="facilitator-controls">{!revealed && <div className="action-bar"><button className="button primary full" type="button" disabled={locked || confirmReveal} onClick={reveal}><Eye size={16} /><span>Reveal <span className="wide-only">estimates</span>{votes !== total && ` · ${votes}/${total} voted`}</span></button>{votes === total && <p>Everyone has voted. Time to compare perspectives.</p>}{confirmReveal && <div className="notice reveal-confirm"><p>{missingVotes} {missingVotes === 1 ? 'person hasn’t' : 'people haven’t'} voted yet. Reveal without {missingVotes === 1 ? 'their estimate' : 'their estimates'}?</p><div className="actions-row"><button className="button primary" disabled={locked} onClick={reveal}>Reveal now</button><button className="button" onClick={() => setConfirmReveal(false)}>Keep voting</button></div></div>}</div>}
                 {confirmReset ? <div className="notice"><p>Clear everyone’s estimates and reopen voting for this story?</p><div className="actions-row"><button className="button" disabled={locked} onClick={reset}>Reset this round</button><button className="button subtle" onClick={() => setConfirmReset(false)}>Cancel</button></div></div> : <button className="button subtle" disabled={locked} onClick={() => setConfirmReset(true)}><RotateCcw size={14} />Restart this round</button>}
               </div>}
             </div>

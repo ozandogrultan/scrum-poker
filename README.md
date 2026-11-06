@@ -6,6 +6,9 @@ A calm, shared worksheet for team estimation. Bring a story list, invite your te
 
 [Quickstart](#quickstart) · [How it works](#how-it-works) · [Deployment](#deployment) · [Development](#development) · [Security](SECURITY.md)
 
+![Scrum Poker voting screen with a private estimate deck, the facilitator's selected card, and the team roster showing who has voted](docs/images/voting.webp)
+<sub>Voting stays private: the roster shows who has voted, never what they chose.</sub>
+
 ![Scrum Poker room showing story progress, revealed estimates with a wide-spread note, score choices, facilitator controls, and the team roster](docs/images/room.webp)
 <sub>The actual worksheet during a browser check, with synthetic review names and stories.</sub>
 
