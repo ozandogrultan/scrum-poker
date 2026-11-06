@@ -144,6 +144,14 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
     else if (!active?.classList.contains('estimate-card')) heading.current?.focus({ preventScroll: true });
   }, [room.roundId, room.currentStory, room.phase]);
   useEffect(() => {
+    const bar = document.querySelector('.action-bar');
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => root.style.setProperty('--bar-h', `${bar.getBoundingClientRect().height}px`));
+    observer.observe(bar);
+    return () => { observer.disconnect(); root.style.removeProperty('--bar-h'); };
+  }, [revealed, done, room.self.facilitator, room.roundId]);
+  useEffect(() => {
     if (window.scrollY > 0) window.scrollTo(0, 0);
     if (!document.activeElement || document.activeElement === document.body) heading.current?.focus({ preventScroll: true });
   }, []);
