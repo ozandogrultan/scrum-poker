@@ -214,4 +214,4 @@ Paper surfaces use 12px corners. Controls use 6px, estimate cards 8px, state tag
 - **Don't** use marketing claims, decorative metrics, gradients, icon tiles, or ornamental dashboard chrome.
 - **Don't** show a successful copy message until the clipboard write resolves.
 
-The responsive rules are sourced from `src/index.css`. Browser workflow review is a separate verification step; the README includes an actual review capture with synthetic room data. `.impeccable/design.json` is a separate tooling artifact and is not the source of these tokens.
+The responsive rules are sourced from `src/index.css`. Browser workflow review is a separate verification step; the README includes an actual review capture with synthetic room data.
