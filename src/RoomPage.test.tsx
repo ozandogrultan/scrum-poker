@@ -220,6 +220,27 @@ describe('Discussion and completion', () => {
     expect(screen.queryByRole('button', { name: /^Undo saving/ })).not.toBeInTheDocument();
   });
 
+  it.each(['clipped banner', 'visible', 'unrelated focus'] as const)('orients the complete save region only when needed: %s', async state => {
+    const user = userEvent.setup();
+    const act = vi.fn().mockImplementation(async () => {
+      if (state === 'unrelated focus') screen.getByRole('button', { name: 'Invite team' }).focus();
+      return true;
+    });
+    view(revealed(), { act });
+    const title = screen.getByRole('heading', { name: 'Improve search relevance' });
+    vi.spyOn(title, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140 } as DOMRect);
+    const workspace = screen.getByRole('region', { name: 'Estimation workspace' });
+    workspace.style.scrollMarginTop = '74px';
+    vi.spyOn(workspace, 'getBoundingClientRect').mockReturnValue({ top: state === 'visible' ? 100 : 30 } as DOMRect);
+    const scroll = vi.fn();
+    workspace.scrollIntoView = scroll;
+    await user.click(screen.getByRole('radio', { name: /^8\b/ }));
+    await user.click(screen.getByRole('button', { name: 'Save estimate & next story' }));
+    expect(scroll).toHaveBeenCalledTimes(state === 'clipped banner' ? 1 : 0);
+    if (state === 'unrelated focus') expect(screen.getByRole('button', { name: 'Invite team' })).toHaveFocus();
+    else expect(title).toHaveFocus();
+  });
+
   it('drops the undo offer once the next round has a vote', async () => {
     const user = userEvent.setup();
     const { act, rerender, ...props } = view(revealed());

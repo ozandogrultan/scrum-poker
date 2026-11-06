@@ -190,6 +190,7 @@ kbd { font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); min-w
 .score-choice input:focus-visible + span { outline: 3px solid #317d6d; outline-offset: 3px; }
 .saved-note { position: absolute; z-index: 10; top: -44px; inset-inline: 12px; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 6px 2px 16px; background: var(--mint); color: #174b3b; border: 1px solid #c4dccb; border-radius: 8px; font-size: 13px; font-weight: 550; box-shadow: 0 12px 20px -14px #2d4a3599; animation: saved-life 10s linear forwards; }
 .saved-note.in-card { position: relative; top: auto; inset-inline: auto; margin: 0; border-width: 0 0 1px; border-radius: 0; box-shadow: none; }
+.workspace.has-saved { scroll-margin-top: calc(60px + env(safe-area-inset-top)); }
 @keyframes saved-life { 0% { opacity: 0; transform: translateY(-8px); } 3% { opacity: 1; transform: none; } 94% { opacity: 1; } 100% { opacity: 0; } }
 .saved-timer { position: absolute; inset: auto 0 0 0; height: 2px; background: #8bb9a0; transform-origin: left; animation: saved-countdown 10s linear forwards; }
 @keyframes saved-countdown { to { transform: scaleX(0); } }
@@ -252,10 +253,13 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, h3[tabindex="-1"]:focus { outl
   .ritual { display: none; }
   .setup-paper { padding: 25px 23px; }
   .setup-paper h2 { font-size: 1.35rem; }
-  .room-top { padding: 27px 0 52px; flex-direction: column; gap: 18px; }
+  .room-top { padding: 27px 0 68px; flex-direction: column; gap: 18px; }
   .room-actions { justify-content: start; width: 100%; }
   .room-layout { display: flex; flex-direction: column; gap: 24px; }
   .workspace { order: 0; width: 100%; }
+  .workspace.has-saved { scroll-margin-top: calc(76px + env(safe-area-inset-top)); }
+  .saved-note:not(.in-card) { top: auto; bottom: calc(100% + 8px); }
+  .saved-note .button { min-height: 44px; }
   .team { order: 1; width: 100%; padding-top: 0; }
   .agenda { order: 2; width: 100%; }
   .round-top, .round-body { padding: 23px 21px; }

@@ -162,9 +162,13 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
   useEffect(() => { if (saved && room.currentStory > saved.story && roundStarted) setSaved(null); }, [saved, room.currentStory, roundStarted]);
   useEffect(() => {
     if (focusTick === 0) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !workspace.current?.contains(active)) return;
     heading.current?.focus({ preventScroll: true });
     const bounds = heading.current?.getBoundingClientRect();
-    if (bounds && (bounds.top < 0 || bounds.bottom > window.innerHeight)) workspace.current?.scrollIntoView({ block: 'start' });
+    const region = workspace.current;
+    const top = saved && region ? region.getBoundingClientRect().top - (parseFloat(getComputedStyle(region).scrollMarginTop) || 0) : bounds?.top;
+    if (bounds && top !== undefined && (top < 0 || bounds.bottom > window.innerHeight)) region?.scrollIntoView({ block: 'start' });
   }, [focusTick]);
   useEffect(() => {
     const before = seen.current;
@@ -247,7 +251,7 @@ export function RoomView({ room, connection, busy, error, act, retry }: RoomView
     {exportError && <div className="error" role="alert">{exportError}</div>}
     <div className={`room-layout ${done ? 'complete' : ''}`}>
       <aside className={`paper agenda ${done ? 'complete' : ''}`} aria-label="Story progress"><div className="rail-title"><h2>The story list</h2><span className="count">{completedCount}/{room.stories.length}</span></div><div className="progress-track" role="progressbar" aria-label="Stories completed" aria-valuenow={completedCount} aria-valuemin={0} aria-valuemax={room.stories.length}><span style={{ width: `${completedCount / room.stories.length * 100}%` }} /></div>{!done && <ol className="story-list">{room.stories.map((story, index) => <li className={`story-item ${index === room.currentStory ? 'active' : ''}`} key={story.id} aria-current={index === room.currentStory ? 'step' : undefined}><span className="story-number">{story.score !== null ? <Check size={13} aria-label="Agreed" /> : String(index + 1).padStart(2, '0')}</span><span className="story-name" title={story.title}>{story.title}</span>{story.score !== null && <span className="story-score" aria-label={`Agreed estimate ${story.score}`}>{story.score}</span>}</li>)}</ol>}</aside>
-      <section className="workspace" ref={workspace} aria-label="Estimation workspace">
+      <section className={`workspace${saved && !done ? ' has-saved' : ''}`} ref={workspace} aria-label="Estimation workspace">
         {room.self.facilitator && saved && !done && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} />}
         <div className={`paper round-paper ${revealed ? 'revealed' : ''}`}>
           {done ? <>{room.self.facilitator && saved && <SavedBanner saved={saved} disabled={connection !== 'live'} onUndo={undo} inCard />}<div className="round-body completed-summary"><span className="complete-mark"><CheckCheck size={27} strokeWidth={1.5} /></span><h2 ref={heading} tabIndex={-1}>That’s a shared understanding.</h2><p className="muted">Every story has an agreed estimate. Your session is complete.</p><button className="button primary" onClick={exportScores}><Download size={16} />Export agreed estimates</button>{undoLast}<div className="completion-list">{room.stories.map(story => <div className="completion-row" key={story.id}><span>{story.title}</span><strong>{story.score}</strong></div>)}</div></div></> : <>
